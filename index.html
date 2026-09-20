@@ -250,6 +250,10 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 .tag.no{background:var(--surface2);color:var(--ink2)}
 .pl-h .tag+.tag{margin-left:6px}
 .pin.sun{background:var(--sun-bg);color:var(--sun);border-color:#E0A800}
+.searchbox{display:block;width:100%;margin-top:12px;padding:12px 18px;border:2px solid var(--line);border-radius:99px;background:var(--surface);color:var(--ink);font:inherit;font-size:16px}
+.qbox{margin-top:12px;padding:12px 16px;border-radius:22px;background:var(--surface);border:2px dashed var(--line)}
+.qbox p{margin:0}
+.qbox .btn{margin-top:10px}
 .mapnote{margin:10px 0 0;font-size:13.5px;color:var(--ink2)}
 .sbar{display:flex;gap:8px}
 .sbar input{flex:1;min-width:0}
@@ -311,7 +315,7 @@ const initial = name => Array.from(String(name).trim())[0] || '?';
 const S = {
   ready: false, mode: 'loading', meId: null, profileName: '',
   canMeet: true, canReview: true, error: '',
-  meetings: [], members: {}, photos: {}, tab: 'log', detail: null, gate: 'loading', user: null, gateMsg: '', wishes: [], mapFilter: 'all'
+  meetings: [], members: {}, photos: {}, tab: 'log', detail: null, gate: 'loading', user: null, gateMsg: '', wishes: [], mapFilter: 'all', mapQuery: ''
 };
 
 /* ---------- storage backends ---------- */
@@ -640,6 +644,8 @@ const app = $('#app');
 function render(keep){
   if (S.mode === 'db' && S.gate !== 'ready') { renderGate(); return; }
   NUMS = calcNums();
+  const ae = document.activeElement;
+  const keepQ = ae && ae.id === 'mapq' ? [ae.selectionStart, ae.selectionEnd] : null;
   const y = window.scrollY;
   if (!S.ready) { app.innerHTML = '<div class="skel">' + mascot(84) + '<p>불러오는 중…</p></div>'; return; }
   const mems = memberList();
@@ -657,6 +663,7 @@ function render(keep){
     '<nav class="tabs" aria-label="메뉴">' + tabs + '</nav>' + notices() + '<main>' + body + '</main>';
   window.scrollTo(0, keep ? y : 0);
   if (!S.detail && S.tab === 'map') attachMap();
+  if (keepQ) { const q2 = $('#mapq'); if (q2) { q2.focus({ preventScroll: true }); try { q2.setSelectionRange(keepQ[0], keepQ[1]); } catch (e) {} } }
   syncPhotos();
 }
 
@@ -852,7 +859,15 @@ function closeSheet(){
   document.body.style.overflow = '';
   if (lastFocus && lastFocus.focus) { try { lastFocus.focus({ preventScroll: true }); } catch (e) {} }
 }
+document.addEventListener('input', e => {
+  if (!e.target || e.target.id !== 'mapq') return;
+  S.mapQuery = e.target.value;
+  const box = $('#mapList');
+  if (box) box.innerHTML = mapListHtml();
+  drawPins();
+});
 document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target && e.target.id === 'mapq') { e.preventDefault(); e.target.blur(); return; }
   if (e.key === 'Enter' && e.target && e.target.id) {
     const id = e.target.id;
     if (id === 'g-email' || id === 'g-pw') { e.preventDefault(); gateActions.gLogin(document.querySelector('[data-act=gLogin]')); return; }
@@ -1169,9 +1184,18 @@ function mapItems(){
   });
   return items;
 }
+const normName = t => String(t || '').toLowerCase().replace(/[\s()\-_.,·]/g, '');
 function visibleItems(){
+  const all = mapItems();
+  const q = normName(S.mapQuery);
+  if (q) {
+    return all.filter(x => {
+      const n = normName(x.name);
+      return n.indexOf(q) >= 0 || (n.length >= 2 && q.indexOf(n) >= 0) || normName(x.address).indexOf(q) >= 0;
+    });
+  }
   const f = S.mapFilter;
-  return mapItems().filter(x => f === 'all' || (f === 'sun' ? (x.kind === 'todo' && x.sunday === 'open') : x.kind === f));
+  return all.filter(x => f === 'all' || (f === 'sun' ? (x.kind === 'todo' && x.sunday === 'open') : f === 'unk' ? (x.kind === 'todo' && !x.sunday) : x.kind === f));
 }
 
 function mapMsg(t){ return '<div class="mapmsg"><p>' + t + '</p></div>'; }
@@ -1211,7 +1235,7 @@ function drawPins(){
     MapView.pins.push(ov);
     bounds.extend(pos);
   });
-  const key = S.mapFilter + '|' + items.map(x => x.id).join(',');
+  const key = S.mapFilter + '|' + S.mapQuery + '|' + items.map(x => x.id).join(',');
   if (items.length && key !== MapView.fitKey) {
     MapView.fitKey = key;
     if (items.length === 1) { MapView.map.setCenter(new kakao.maps.LatLng(Number(items[0].lat), Number(items[0].lng))); MapView.map.setLevel(4); }
@@ -1223,19 +1247,25 @@ function openMapItem(kind, id){
   else openPlaceInfo(id);
 }
 
-function viewMap(){
-  const all = mapItems();
-  const nTodo = all.filter(x => x.kind === 'todo').length, nDone = all.length - nTodo;
-  const nSun = all.filter(x => x.kind === 'todo' && x.sunday === 'open').length;
+function mapListHtml(){
+  const q = S.mapQuery.trim();
   const shown = visibleItems().sort((a, b) => (a.kind === b.kind)
     ? (a.kind === 'todo' ? (b.created || 0) - (a.created || 0) : String(b.date).localeCompare(String(a.date)))
     : (a.kind === 'todo' ? -1 : 1));
-  const fc = (f, label) => '<button class="fchip" data-act="mapFilter" data-f="' + f + '" aria-pressed="' + (S.mapFilter === f) + '">' + label + '</button>';
-  let h = '<div class="sec"><h2>우리의 맛집 지도</h2><button class="btn pri" data-act="addPlace">갈 곳 추가</button></div>';
-  h += '<div class="mapbox"><div id="mapHost" class="maphost"></div></div>';
-  h += '<div class="fchips">' + fc('all', '전체 ' + all.length) + fc('todo', '갈 곳 ' + nTodo) + fc('sun', '일요일 영업 ' + nSun) + fc('done', '간 곳 ' + nDone) + '</div>';
-  if (nSun) h += '<p class="mapnote">노란 "일" 핀은 일요일에도 여는 갈 곳이에요.</p>';
-  if (!shown.length) return h + emptyBox(S.mapFilter === 'done' ? '아직 다녀온 곳이 없어요.' : S.mapFilter === 'sun' ? '일요일 영업으로 표시한 갈 곳이 없어요.<br>갈 곳을 열어 "일요일 영업"을 골라 주세요.' : '아직 가고 싶은 곳이 없어요.<br>"갈 곳 추가"로 지도에 모아 보세요.');
+  let h = '';
+  if (q) {
+    const nT = shown.filter(x => x.kind === 'todo').length, nD = shown.length - nT;
+    if (!shown.length) {
+      h += '<div class="qbox"><p>"' + esc(q) + '"은(는) 아직 저장되어 있지 않아요.</p>' + (S.canMeet ? '<button class="btn pri" data-act="addPlaceQ">갈 곳으로 추가</button>' : '') + '</div>';
+      return h;
+    }
+    let msg;
+    if (shown.length === 1) msg = shown[0].kind === 'todo' ? '<b>갈 곳</b>에 저장되어 있어요.' : (shown[0].upcoming ? '<b>예정된 모임</b>으로 저장되어 있어요.' : '이미 <b>다녀온 곳</b>이에요.');
+    else msg = '검색 결과 ' + shown.length + '곳: 갈 곳 ' + nT + '곳, 간 곳 ' + nD + '곳';
+    h += '<div class="qbox"><p>"' + esc(q) + '" — ' + msg + '</p></div>';
+  } else if (!shown.length) {
+    return emptyBox(S.mapFilter === 'done' ? '아직 다녀온 곳이 없어요.' : S.mapFilter === 'sun' ? '일요일 영업으로 표시한 갈 곳이 없어요.<br>갈 곳을 눌러 "일요일 영업"을 골라 주세요.' : S.mapFilter === 'unk' ? '일요일 영업 여부를 모두 확인했어요!' : '아직 가고 싶은 곳이 없어요.<br>"갈 곳 추가"로 지도에 모아 보세요.');
+  }
   shown.forEach(it => {
     const tag = it.kind === 'todo' ? '<span class="tag">갈 곳</span>' + (it.sunday === 'open' ? '<span class="tag sun">일요일 영업</span>' : it.sunday === 'closed' ? '<span class="tag no">일요일 휴무</span>' : '')
       : '<span class="tag acc">' + (it.upcoming ? '예정' : (it.no ? '제' + it.no + '회 다녀옴' : '다녀옴')) + '</span>';
@@ -1248,6 +1278,23 @@ function viewMap(){
   return h;
 }
 
+function viewMap(){
+  const all = mapItems();
+  const q = S.mapQuery.trim();
+  const nTodo = all.filter(x => x.kind === 'todo').length, nDone = all.length - nTodo;
+  const nSun = all.filter(x => x.kind === 'todo' && x.sunday === 'open').length;
+  const nUnk = all.filter(x => x.kind === 'todo' && !x.sunday).length;
+  const cur = q ? '' : S.mapFilter;
+  const fc = (f, label) => '<button class="fchip" data-act="mapFilter" data-f="' + f + '" aria-pressed="' + (cur === f) + '">' + label + '</button>';
+  let h = '<div class="sec"><h2>우리의 맛집 지도</h2><button class="btn pri" data-act="addPlace">갈 곳 추가</button></div>';
+  h += '<input type="search" id="mapq" class="searchbox" placeholder="저장된 가게 찾기 (이름이나 동네)" value="' + esc(S.mapQuery) + '" autocomplete="off" enterkeyhint="search" aria-label="저장된 가게 찾기">';
+  h += '<div class="mapbox"><div id="mapHost" class="maphost"></div></div>';
+  h += '<div class="fchips">' + fc('all', '전체 ' + all.length) + fc('todo', '갈 곳 ' + nTodo) + fc('sun', '일요일 영업 ' + nSun) + (nUnk ? fc('unk', '일요일 미확인 ' + nUnk) : '') + fc('done', '간 곳 ' + nDone) + '</div>';
+  if (nSun && !q) h += '<p class="mapnote">노란 "일" 핀은 일요일에도 여는 갈 곳이에요.</p>';
+  h += '<div id="mapList">' + mapListHtml() + '</div>';
+  return h;
+}
+
 function placeLinkList(o){
   const out = [];
   const nm = o.name || o.restaurant || '';
@@ -1256,9 +1303,9 @@ function placeLinkList(o){
   const isNaver = host.indexOf('naver') >= 0, isKakao = host.indexOf('kakao') >= 0;
   if (link && isNaver) out.push(['네이버 지도', link]);
   else out.push(['네이버 지도에서 찾기', 'https://map.naver.com/p/search/' + encodeURIComponent(nm)]);
-  if (hasPos(o)) out.push(['카카오맵', 'https://map.kakao.com/link/map/' + encodeURIComponent(nm) + ',' + Number(o.lat) + ',' + Number(o.lng)]);
+  if (safeUrl(o.placeUrl)) out.push(['카카오맵 영업시간 보기', safeUrl(o.placeUrl)]);
+  else if (hasPos(o)) out.push(['카카오맵', 'https://map.kakao.com/link/map/' + encodeURIComponent(nm) + ',' + Number(o.lat) + ',' + Number(o.lng)]);
   else if (link && isKakao) out.push(['카카오맵', link]);
-  else if (safeUrl(o.placeUrl)) out.push(['카카오맵', safeUrl(o.placeUrl)]);
   if (link && !isNaver && !isKakao) out.push([(host.indexOf('google') >= 0 || host.indexOf('goo.gl') >= 0) ? '구글 지도' : '링크', link]);
   return out;
 }
@@ -1307,12 +1354,12 @@ function bindSearch(sheet, onPick){
   });
 }
 
-function openPlaceSheet(id){
+function openPlaceSheet(id, preset){
   const ex = id ? S.wishes.find(x => x.id === id) : null;
   let pick = ex && hasPos(ex) ? { lat: Number(ex.lat), lng: Number(ex.lng), placeUrl: ex.placeUrl || '' } : null;
   openSheet(ex ? '갈 곳 수정' : '갈 곳 추가',
     '<h3>' + (ex ? '갈 곳 수정' : '가고 싶은 곳 추가') + '</h3>' + searchBlock() +
-    '<label for="f-pname">가게 이름</label><input id="f-pname" maxlength="60" value="' + esc(ex ? ex.name : '') + '" placeholder="검색하면 자동으로 채워져요">' +
+    '<label for="f-pname">가게 이름</label><input id="f-pname" maxlength="60" value="' + esc(ex ? ex.name : (preset ? preset.name : '')) + '" placeholder="검색하면 자동으로 채워져요">' +
     '<label for="f-paddr">위치</label><input id="f-paddr" maxlength="80" value="' + esc(ex ? ex.address : '') + '" placeholder="예: 서울 성동구 성수동">' +
     '<label for="f-plink">링크</label><input id="f-plink" type="text" inputmode="url" autocapitalize="off" value="' + esc(ex ? (ex.link || '') : '') + '" placeholder="네이버 지도 공유 링크를 붙여넣기">' +
     '<div class="lab">일요일 영업</div><div class="who" id="f-sun" role="group" aria-label="일요일 영업">' +
@@ -1338,6 +1385,10 @@ function openPlaceSheet(id){
         pick = { lat: r.lat, lng: r.lng, placeUrl: r.placeUrl };
         if (hint) hint.textContent = '"' + r.name + '" 위치가 지도에 저장돼요.';
       });
+      if (preset && preset.name) {
+        const sq = sheet.querySelector('#f-q'), sg = sheet.querySelector('#f-qgo');
+        if (sq && sg) { sq.value = preset.name; sg.click(); }
+      }
       sheet.querySelector('#save').addEventListener('click', ev => {
         const name = sheet.querySelector('#f-pname').value.trim();
         if (!name) { err.textContent = '가게 이름을 입력해 주세요.'; return; }
@@ -1365,9 +1416,21 @@ function openPlaceInfo(id){
   if (!w) return;
   openSheet(w.name,
     '<h3>' + esc(w.name) + '</h3>' + (w.address ? '<p class="hint">' + esc(w.address) + '</p>' : '') +
-    (w.sunday === 'open' ? '<p style="margin:10px 0 0"><span class="tag sun">일요일 영업</span></p>' : w.sunday === 'closed' ? '<p style="margin:10px 0 0"><span class="tag no">일요일 휴무</span></p>' : '') +
     (w.memo ? '<div class="d-memo">' + esc(w.memo) + '</div>' : '') + placeLinksHtml(w) +
-    '<div class="actions" style="margin-top:18px"><button class="btn" data-act="editPlace" data-id="' + esc(w.id) + '">수정</button><button class="btn pri" data-act="planMeeting" data-id="' + esc(w.id) + '">모임 잡기</button></div>');
+    '<div class="lab" style="margin-top:16px">일요일 영업</div><div class="who" role="group" aria-label="일요일 영업">' +
+      [['open', '영업해요'], ['closed', '휴무예요'], ['', '아직 몰라요']].map(x => '<button type="button" data-qsun="' + x[0] + '" aria-pressed="' + ((w.sunday || '') === x[0]) + '">' + x[1] + '</button>').join('') + '</div>' +
+    '<p class="hint">영업시간은 위의 "영업시간 보기"나 네이버 지도에서 확인하고 눌러 주세요.</p>' +
+    '<div class="actions" style="margin-top:18px"><button class="btn" data-act="editPlace" data-id="' + esc(w.id) + '">수정</button><button class="btn pri" data-act="planMeeting" data-id="' + esc(w.id) + '">모임 잡기</button></div>',
+    sheet => {
+      sheet.addEventListener('click', async e => {
+        const qb = e.target.closest('[data-qsun]');
+        if (!qb) return;
+        try {
+          await Store.saveWish(Object.assign({}, w, { sunday: qb.dataset.qsun, updatedAt: Date.now() }));
+          openPlaceInfo(id);
+        } catch (err) { console.error(err); toast('저장하지 못했어요'); }
+      });
+    });
 }
 
 /* ---------- events ---------- */
@@ -1377,7 +1440,8 @@ document.addEventListener('click', e => {
   const a = t.dataset.act;
   if (gateActions[a]) { gateActions[a](t); return; }
   if (a === 'lbClose') { closeLightbox(); return; }
-  if (a === 'mapFilter') { S.mapFilter = t.dataset.f; render(true); return; }
+  if (a === 'mapFilter') { S.mapFilter = t.dataset.f; S.mapQuery = ''; render(true); return; }
+  if (a === 'addPlaceQ') { openPlaceSheet(null, { name: S.mapQuery.trim() }); return; }
   if (a === 'addPlace') { openPlaceSheet(null); return; }
   if (a === 'openPlace') { openMapItem(t.dataset.kind, t.dataset.id); return; }
   if (a === 'editPlace') { openPlaceSheet(t.dataset.id); return; }
