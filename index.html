@@ -199,8 +199,14 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 .actions .btn.pri{flex:2}
 .rate{display:flex;gap:4px}
 .rate.big .pc{--pw:46px}
-.rbtn{background:none;border:0;padding:4px 2px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.rate:not(.big) .pc{--pw:28px}
+.rp{position:relative;display:inline-block;padding:4px 1px}
+.rh{position:absolute;top:0;bottom:0;width:50%;padding:0;border:0;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.rh.l{left:0}
+.rh.r{right:0}
+.rh:focus-visible{outline-offset:-2px}
+.rate-wrap{display:flex;align-items:center;gap:8px}
+.rout{min-width:30px;text-align:right;font:400 17px var(--display);color:var(--accent)}
+.rate:not(.big) .pc{--pw:32px}
 .who{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .who button{display:inline-flex;align-items:center;gap:6px;padding:6px 14px 6px 8px;border-radius:99px;border:2px solid var(--line);background:none;cursor:pointer;font-size:15px}
 .who button[aria-pressed="true"]{border-color:var(--accent);background:var(--surface2);font-family:var(--display)}
@@ -971,7 +977,12 @@ function openNameSheet(memberId, after){
 /* review sheet */
 function rateGroup(g, val){
   let s = '';
-  for (let i = 1; i <= 5; i++) s += '<button type="button" class="rbtn" role="radio" aria-checked="' + (val === i) + '" aria-label="' + i + '점" data-rate="' + g + '" data-v="' + i + '">' + piece(i <= val ? 1 : 0) + '</button>';
+  for (let i = 1; i <= 5; i++) {
+    const f = Math.max(0, Math.min(1, val - (i - 1)));
+    s += '<span class="rp">' + piece(f) +
+      '<button type="button" class="rh l" role="radio" aria-checked="' + (val === i - 0.5) + '" aria-label="' + (i - 0.5) + '점" data-rate="' + g + '" data-v="' + (i - 0.5) + '"></button>' +
+      '<button type="button" class="rh r" role="radio" aria-checked="' + (val === i) + '" aria-label="' + i + '점" data-rate="' + g + '" data-v="' + i + '"></button></span>';
+  }
   return s;
 }
 function openReviewSheet(mid, memberId){
@@ -989,11 +1000,12 @@ function openReviewSheet(mid, memberId){
     : '';
   const origP = ((S.photos[mid] || {})[who] || []).slice();
   const P = origP.slice();
-  const detailRow = (g, label, hint) => '<div class="drow"><span>' + label + '<small>' + hint + '</small></span><div class="rate" role="radiogroup" aria-label="' + label + '" data-g="' + g + '">' + rateGroup(g, F[g]) + '</div></div>';
+  const detailRow = (g, label, hint) => '<div class="drow"><span>' + label + '<small>' + hint + '</small></span><div class="rate-wrap"><div class="rate" role="radiogroup" aria-label="' + label + '" data-g="' + g + '">' + rateGroup(g, F[g]) + '</div><span class="rout" data-out="' + g + '">' + (F[g] || '') + '</span></div></div>';
   openSheet('후기 쓰기',
     '<h3>' + esc(m.restaurant) + '</h3><p class="hint">' + shortDate(m.date) + '</p>' + picker +
     '<div class="lab" style="margin-top:18px">종합 점수 <span id="ov-n" style="font-family:var(--sans);font-size:14px;color:var(--ink2)"></span></div>' +
     '<div class="rate big" role="radiogroup" aria-label="종합 점수" data-g="overall">' + rateGroup('overall', F.overall) + '</div>' +
+    '<p class="hint" style="margin-top:4px">초밥의 왼쪽 절반을 누르면 0.5점, 오른쪽 절반을 누르면 1점 단위예요.</p>' +
     '<div class="lab" style="margin-top:18px">세부 점수 <span style="font-family:var(--sans);font-size:14px;color:var(--ink2)">(다시 누르면 취소돼요)</span></div>' +
     detailRow('neta', '네타', '재료') + detailRow('shari', '샤리', '밥') + detailRow('value', '가성비', '') +
     '<div class="lab">사진 <span style="font-family:var(--sans);font-size:14px;color:var(--ink2)">(최대 3장)</span></div><div class="pgrid" id="pgrid"></div><input type="file" id="f-file" accept="image/*" multiple hidden><div class="pstat" id="pstat" aria-live="polite"></div>' +
@@ -1035,6 +1047,8 @@ function openReviewSheet(mid, memberId){
           F[g] = (F[g] === v && g !== 'overall') ? 0 : v;
           sheet.querySelector('[data-g="' + g + '"]').innerHTML = rateGroup(g, F[g]);
           if (g === 'overall') showOv();
+          const outEl = sheet.querySelector('[data-out="' + g + '"]');
+          if (outEl) outEl.textContent = F[g] || '';
           err.textContent = '';
           return;
         }
