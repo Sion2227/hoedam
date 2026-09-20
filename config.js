@@ -9,4 +9,4 @@ const FIREBASE_CONFIG = {
 };
 
 /* 지도 기능용 카카오 JavaScript 키 (설정-가이드.md 9단계). 지도를 쓰지 않으면 이대로 둬도 돼요. */
-const KAKAO_JS_KEY = "여기에_붙여넣기";
+const KAKAO_JS_KEY = "ff4924631ed64c395c598014b8cc1d52";
