@@ -7,3 +7,6 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "664319978959",
   appId: "1:664319978959:web:819dcdc2e00a1d822ef6ba"
 };
+
+/* 지도 기능용 카카오 JavaScript 키 (설정-가이드.md 9단계). 지도를 쓰지 않으면 이대로 둬도 돼요. */
+const KAKAO_JS_KEY = "여기에_붙여넣기";

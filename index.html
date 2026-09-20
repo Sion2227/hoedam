@@ -231,6 +231,28 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 
 .no{display:block;font:400 14px/1.3 var(--display);color:var(--accent)}
 .no-pill{display:inline-block;margin-right:8px;padding:1px 11px;border-radius:99px;background:var(--surface2);color:var(--accent);font:400 14px var(--display)}
+.mapbox{position:relative;height:300px;margin-top:12px;border-radius:28px;overflow:hidden;border:2px solid var(--line);background:var(--surface2)}
+.maphost{position:absolute;inset:0}
+.mapcanvas{position:absolute;inset:0}
+.mapmsg{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;color:var(--ink2);font-size:14px}
+.mapmsg p{margin:0}
+.pin{display:grid;place-items:center;min-width:34px;height:34px;padding:0 9px;border-radius:99px;border:3px solid #fff;font:400 16px/1 var(--display);box-shadow:0 3px 0 rgba(0,0,0,.25);cursor:pointer}
+.pin.done{background:var(--accent);color:var(--accent-ink)}
+.pin.todo{background:var(--good-bg);color:var(--good);border-color:var(--good)}
+.fchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.fchip{min-height:40px;padding:6px 16px;border-radius:99px;border:2px solid var(--line);background:var(--surface);color:var(--ink2);font:400 15px var(--display);cursor:pointer}
+.fchip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.pl{display:block;width:100%;margin-top:10px;padding:14px;border:2px solid var(--line);border-radius:26px;background:var(--surface);text-align:left;cursor:pointer}
+.pl-h{display:block;margin-bottom:6px}
+.pl-m{display:block;margin-top:4px;font-size:14px;color:var(--ink2)}
+.tag.acc{background:var(--surface2);color:var(--accent)}
+.sbar{display:flex;gap:8px}
+.sbar input{flex:1;min-width:0}
+.sbar .btn{flex:none;padding:10px 16px}
+.sr{display:block;width:100%;margin-top:8px;padding:10px 14px;border:2px solid var(--line);border-radius:18px;background:var(--bg);text-align:left;cursor:pointer}
+.sr-n{display:block;font:400 17px/1.3 var(--display)}
+.sr-a{display:block;font-size:13.5px;color:var(--ink2)}
+.sr-c{display:inline-block;margin-top:2px;padding:0 9px;border-radius:99px;background:var(--surface2);font-size:12.5px;color:var(--ink2)}
 .gate{max-width:420px;margin:0 auto;padding:44px 0 24px;text-align:center}
 .gate .mascot{margin:0 auto 10px}
 .gate h1{font-size:40px}
@@ -284,12 +306,12 @@ const initial = name => Array.from(String(name).trim())[0] || '?';
 const S = {
   ready: false, mode: 'loading', meId: null, profileName: '',
   canMeet: true, canReview: true, error: '',
-  meetings: [], members: {}, photos: {}, tab: 'log', detail: null, gate: 'loading', user: null, gateMsg: ''
+  meetings: [], members: {}, photos: {}, tab: 'log', detail: null, gate: 'loading', user: null, gateMsg: '', wishes: [], mapFilter: 'all'
 };
 
 /* ---------- storage backends ---------- */
 const Store = {
-  saveMeeting: async () => {}, deleteMeeting: async () => {}, updateMember: async () => {}, savePhotos: async () => {}
+  saveMeeting: async () => {}, deleteMeeting: async () => {}, updateMember: async () => {}, savePhotos: async () => {}, saveWish: async () => {}, deleteWish: async () => {}
 };
 
 const safeImg = u => typeof u === 'string' && u.length < 150000 && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(u);
@@ -324,14 +346,16 @@ function stopListeners(){
   Object.keys(PhotoSubs).forEach(k => { try { PhotoSubs[k](); } catch (e) {} delete PhotoSubs[k]; });
 }
 function resetData(){
-  S.meetings = []; S.members = {}; S.photos = {}; S.ready = false; S.detail = null; S.tab = 'log'; S.error = '';
+  S.meetings = []; S.wishes = []; S.members = {}; S.photos = {}; S.ready = false; S.detail = null; S.tab = 'log'; S.error = '';
 }
 function startListeners(){
   let gotM = false, gotR = false;
   const check = () => { if (gotM && gotR) S.ready = true; };
   const onErr = e => { S.error = '데이터를 불러오지 못했어요 (' + (e && e.code ? e.code : 'error') + '). 새로고침해 주세요.'; S.ready = true; render(true); };
   listeners.push(fs.collection('meetings').onSnapshot(snap => {
-    S.meetings = snap.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
+    const all = snap.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
+    S.meetings = all.filter(x => x.kind !== 'wish');
+    S.wishes = all.filter(x => x.kind === 'wish');
     gotM = true; check(); render(true);
   }, onErr));
   listeners.push(fs.collection('reviews').onSnapshot(snap => {
@@ -375,6 +399,8 @@ async function initCloud(){
     await withTimeout(fs.collection('meetings').doc(m.id).set(body), 15000);
   };
   Store.deleteMeeting = async id => { await withTimeout(fs.collection('meetings').doc(id).delete(), 15000); };
+  Store.saveWish = Store.saveMeeting;
+  Store.deleteWish = Store.deleteMeeting;
   let queue = Promise.resolve();
   Store.updateMember = (memberId, fn) => {
     const run = queue.then(async () => {
@@ -499,7 +525,7 @@ function initLocal(){
   const KEY = 'sushi-log-v1';
   try {
     const j = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (j) { S.meetings = j.meetings || []; S.members = j.members || {}; }
+    if (j) { S.meetings = j.meetings || []; S.members = j.members || {}; S.wishes = j.wishes || []; }
   } catch (e) {}
   const PKEY = 'sushi-photos-v1';
   try {
@@ -516,7 +542,7 @@ function initLocal(){
     render(true);
   };
   const persist = () => {
-    try { localStorage.setItem(KEY, JSON.stringify({ meetings: S.meetings, members: S.members })); }
+    try { localStorage.setItem(KEY, JSON.stringify({ meetings: S.meetings, members: S.members, wishes: S.wishes })); }
     catch (e) { toast('이 브라우저에 저장하지 못했어요'); }
   };
   Store.saveMeeting = async m => {
@@ -525,6 +551,12 @@ function initLocal(){
     persist(); render(true);
   };
   Store.deleteMeeting = async id => { S.meetings = S.meetings.filter(x => x.id !== id); delete S.photos[id]; try { persistPhotos(); } catch (e) {} persist(); render(true); };
+  Store.saveWish = async w => {
+    const i = S.wishes.findIndex(x => x.id === w.id);
+    if (i >= 0) S.wishes[i] = w; else S.wishes.push(w);
+    persist(); render(true);
+  };
+  Store.deleteWish = async id => { S.wishes = S.wishes.filter(x => x.id !== id); persist(); render(true); };
   Store.updateMember = async (memberId, fn) => {
     const cur = S.members[memberId] ? clone(S.members[memberId]) : null;
     S.members[memberId] = fn(cur);
@@ -609,15 +641,17 @@ function render(keep){
   let body;
   if (S.detail) body = viewDetail();
   else if (S.tab === 'rank') body = viewRank();
+  else if (S.tab === 'map') body = viewMap();
   else if (S.tab === 'members') body = viewMembers();
   else body = viewLog();
   const stack = mems.slice(0, 6).map(m => avatar(m)).join('');
-  const tabs = [['log', '기록'], ['rank', '순위'], ['members', '멤버']].map(t =>
+  const tabs = [['log', '기록'], ['rank', '순위'], ['map', '지도'], ['members', '멤버']].map(t =>
     '<button class="tab" data-act="tab" data-tab="' + t[0] + '"' + (!S.detail && S.tab === t[0] || (S.detail && t[0] === 'log') ? ' aria-current="page"' : '') + '>' + t[1] + '</button>').join('');
   app.innerHTML =
     '<header class="top">' + mascot(78) + '<div class="ttl"><h1>정상회담</h1><p class="sub">한 달에 한 번,<br>초밥 먹고 점수 남기는 모임</p></div><div class="stack" aria-label="멤버 ' + mems.length + '명">' + stack + '</div></header>' +
     '<nav class="tabs" aria-label="메뉴">' + tabs + '</nav>' + notices() + '<main>' + body + '</main>';
   window.scrollTo(0, keep ? y : 0);
+  if (!S.detail && S.tab === 'map') attachMap();
   syncPhotos();
 }
 
@@ -697,15 +731,8 @@ function viewDetail(){
   if (m.price) meta.push('<span>1인 ' + won(m.price) + '</span>');
   if (meta.length) h += '<div class="d-meta">' + meta.join('') + '</div>';
   h += '<div class="att"><span class="att-n">참석 ' + att.length + '명</span>' + att.map(x => '<span class="chip">' + avatar(x) + esc(x.name) + '</span>').join('') + '</div>';
-  const lk = [];
-  const mu = safeUrl(m.mapUrl), iu = safeUrl(m.instaUrl);
-  if (mu) {
-    const host = (mu.split('/')[2] || '').toLowerCase();
-    const lbl = host.indexOf('naver') >= 0 ? '네이버 지도' : host.indexOf('kakao') >= 0 ? '카카오맵' : (host.indexOf('google') >= 0 || host.indexOf('goo.gl') >= 0) ? '구글 지도' : '지도 보기';
-    lk.push('<a href="' + esc(mu) + '" target="_blank" rel="noopener noreferrer">' + lbl + '</a>');
-  }
-  if (iu) lk.push('<a href="' + esc(iu) + '" target="_blank" rel="noopener noreferrer">인스타그램</a>');
-  if (lk.length) h += '<div class="lnks">' + lk.join('') + '</div>';
+  const igu = safeUrl(m.instaUrl);
+  h += placeLinksHtml(m, igu ? [['인스타그램', igu]] : []);
   if (m.memo) h += '<div class="d-memo">' + esc(m.memo) + '</div>';
   if (S.canMeet) h += '<p style="margin:10px 0 0"><button class="btn ghost" data-act="editMeeting" data-id="' + esc(m.id) + '" style="padding-left:0;font-size:16px">모임 정보 수정</button></p>';
 
@@ -883,13 +910,16 @@ function openLightbox(src){
 function closeLightbox(){ $('#lightbox').innerHTML = ''; }
 
 /* meeting sheet */
-function openMeetingSheet(id){
+function openMeetingSheet(id, pre){
   const ex = id ? S.meetings.find(x => x.id === id) : null;
   const mems = memberList();
   const attSel = ex ? attendeesOf(ex).map(x => x.id) : mems.map(x => x.id);
-  const v = ex || { restaurant: '', date: todayStr(), area: '', price: '', memo: '', mapUrl: '', instaUrl: '' };
+  const v = ex || (pre ? { restaurant: pre.name || '', date: todayStr(), area: shortArea(pre.address), price: '', memo: pre.memo || '', mapUrl: pre.link || pre.placeUrl || '', instaUrl: '', lat: pre.lat, lng: pre.lng, placeUrl: pre.placeUrl || '' }
+    : { restaurant: '', date: todayStr(), area: '', price: '', memo: '', mapUrl: '', instaUrl: '' });
+  let pick = hasPos(v) ? { lat: Number(v.lat), lng: Number(v.lng), placeUrl: v.placeUrl || '' } : null;
   openSheet(ex ? '모임 수정' : '모임 추가',
     '<h3>' + (ex ? '모임 정보 수정' : '모임 추가') + '</h3>' +
+    searchBlock() +
     '<label for="f-name">가게 이름</label><input id="f-name" maxlength="60" value="' + esc(v.restaurant) + '" placeholder="예: 스시 OO">' +
     '<div class="row2"><div><label for="f-date">날짜</label><input id="f-date" type="date" value="' + esc(v.date) + '"></div>' +
     '<div><label for="f-price">1인 가격(원)</label><input id="f-price" type="number" inputmode="numeric" min="0" step="1000" value="' + esc(v.price || '') + '" placeholder="선택"></div></div>' +
@@ -906,6 +936,16 @@ function openMeetingSheet(id){
     '<button class="btn pri" id="save">저장</button></div>',
     sheet => {
       const err = sheet.querySelector('#err');
+      const pickHint = sheet.querySelector('#f-pick');
+      if (pickHint && pick) pickHint.textContent = '지도 위치가 저장돼 있어요.';
+      bindSearch(sheet, r => {
+        sheet.querySelector('#f-name').value = r.name;
+        sheet.querySelector('#f-area').value = shortArea(r.address);
+        const mp = sheet.querySelector('#f-map');
+        if (!mp.value.trim() && r.placeUrl) mp.value = r.placeUrl;
+        pick = { lat: r.lat, lng: r.lng, placeUrl: r.placeUrl };
+        if (pickHint) pickHint.textContent = '"' + r.name + '" 위치가 지도에 저장돼요.';
+      });
       sheet.addEventListener('click', e => {
         const b = e.target.closest('[data-att]');
         if (b) b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
@@ -927,12 +967,14 @@ function openMeetingSheet(id){
           price: isNaN(price) || price <= 0 ? null : price,
           memo: sheet.querySelector('#f-memo').value.trim(),
           mapUrl: mapUrl, instaUrl: instaUrl, no: noVal > 0 ? noVal : null,
+          lat: pick ? pick.lat : null, lng: pick ? pick.lng : null, placeUrl: pick ? pick.placeUrl : '',
           createdAt: ex ? (ex.createdAt || Date.now()) : Date.now(), updatedAt: Date.now()
         };
         if (sheet.querySelector('#f-att')) m.attendees = Array.from(sheet.querySelectorAll('[data-att][aria-pressed="true"]')).map(b => b.dataset.att);
         else if (ex && Array.isArray(ex.attendees)) m.attendees = ex.attendees;
         busy(ev.currentTarget, async () => {
           await Store.saveMeeting(m);
+          if (pre && pre.wish) await Store.saveWish(Object.assign({}, pre.wish, { status: 'done', doneMeeting: m.id, updatedAt: Date.now() }));
           closeSheet(); toast('저장했어요');
         }, err);
       });
@@ -1083,6 +1125,233 @@ function openReviewSheet(mid, memberId){
     });
 }
 
+/* ---------- 지도 / 갈 곳 ---------- */
+const hasPos = o => !!o && o.lat != null && o.lng != null && o.lat !== '' && o.lng !== '' &&
+  Number.isFinite(Number(o.lat)) && Number.isFinite(Number(o.lng)) && !(Number(o.lat) === 0 && Number(o.lng) === 0);
+const shortArea = a => String(a || '').trim().split(/\s+/).slice(0, 2).join(' ').slice(0, 40);
+const kakaoKeyOk = () => typeof KAKAO_JS_KEY !== 'undefined' && !!KAKAO_JS_KEY && String(KAKAO_JS_KEY).indexOf('여기') < 0;
+const MapView = { state: 'idle', err: '', el: null, map: null, pins: [], fitKey: '' };
+let kakaoP = null;
+
+function loadKakao(){
+  if (kakaoP) return kakaoP;
+  kakaoP = new Promise((res, rej) => {
+    const fail = msg => { MapView.state = 'error'; MapView.err = msg; rej(new Error(msg)); };
+    if (!kakaoKeyOk()) { fail('카카오 지도 키가 아직 설정되지 않았어요.'); return; }
+    MapView.state = 'loading';
+    const sc = document.createElement('script');
+    sc.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + encodeURIComponent(KAKAO_JS_KEY) + '&libraries=services&autoload=false';
+    sc.onload = () => {
+      try { kakao.maps.load(() => { MapView.state = 'ready'; res(); }); }
+      catch (e) { fail('지도를 불러오지 못했어요. 카카오 설정(도메인 등록, 카카오맵 활성화)을 확인해 주세요.'); }
+    };
+    sc.onerror = () => fail('지도를 불러오지 못했어요. 카카오 설정(도메인 등록, 카카오맵 활성화)을 확인해 주세요.');
+    document.head.appendChild(sc);
+  });
+  kakaoP.catch(() => {});
+  return kakaoP;
+}
+
+function mapItems(){
+  const items = [];
+  S.meetings.forEach(m => {
+    if (!m || !m.date || !m.restaurant) return;
+    const upcoming = m.date >= todayStr() && meetingStats(m.id).rs.length === 0;
+    items.push({ kind: 'done', id: m.id, name: m.restaurant, address: m.area || '', lat: m.lat, lng: m.lng, no: NUMS[m.id], upcoming: upcoming, date: m.date });
+  });
+  S.wishes.filter(w => w && w.name && w.status !== 'done').forEach(w => {
+    items.push({ kind: 'todo', id: w.id, name: w.name, address: w.address || '', lat: w.lat, lng: w.lng, memo: w.memo || '', created: w.createdAt || 0 });
+  });
+  return items;
+}
+function visibleItems(){
+  const f = S.mapFilter;
+  return mapItems().filter(x => f === 'all' || x.kind === f);
+}
+
+function mapMsg(t){ return '<div class="mapmsg"><p>' + t + '</p></div>'; }
+function attachMap(){
+  const host = $('#mapHost');
+  if (!host) return;
+  if (!kakaoKeyOk()) { host.innerHTML = mapMsg('지도를 켜려면 카카오 지도 키가 필요해요.<br>설정 가이드 9단계를 따라 해 주세요.<br>그 전에도 갈 곳 목록은 쓸 수 있어요.'); return; }
+  if (MapView.state === 'error') { host.innerHTML = mapMsg(esc(MapView.err)); return; }
+  if (!MapView.el) { MapView.el = document.createElement('div'); MapView.el.className = 'mapcanvas'; }
+  host.appendChild(MapView.el);
+  if (MapView.state !== 'ready') {
+    host.insertAdjacentHTML('beforeend', '<div class="mapmsg" id="mapLoading"><p>지도를 불러오는 중…</p></div>');
+    loadKakao().then(attachMap, attachMap);
+    return;
+  }
+  const ld = host.querySelector('#mapLoading'); if (ld) ld.remove();
+  if (!MapView.map) MapView.map = new kakao.maps.Map(MapView.el, { center: new kakao.maps.LatLng(37.5665, 126.978), level: 7 });
+  else MapView.map.relayout();
+  drawPins();
+}
+function drawPins(){
+  if (!MapView.map) return;
+  MapView.pins.forEach(o => o.setMap(null));
+  MapView.pins = [];
+  const items = visibleItems().filter(hasPos);
+  const bounds = new kakao.maps.LatLngBounds();
+  items.forEach(it => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pin ' + it.kind;
+    b.textContent = it.kind === 'done' ? (it.no || '●') : '갈';
+    b.setAttribute('aria-label', it.name);
+    b.addEventListener('click', () => openMapItem(it.kind, it.id));
+    const pos = new kakao.maps.LatLng(Number(it.lat), Number(it.lng));
+    const ov = new kakao.maps.CustomOverlay({ position: pos, content: b, yAnchor: 1 });
+    ov.setMap(MapView.map);
+    MapView.pins.push(ov);
+    bounds.extend(pos);
+  });
+  const key = S.mapFilter + '|' + items.map(x => x.id).join(',');
+  if (items.length && key !== MapView.fitKey) {
+    MapView.fitKey = key;
+    if (items.length === 1) { MapView.map.setCenter(new kakao.maps.LatLng(Number(items[0].lat), Number(items[0].lng))); MapView.map.setLevel(4); }
+    else MapView.map.setBounds(bounds, 40, 40, 40, 40);
+  }
+}
+function openMapItem(kind, id){
+  if (kind === 'done') { S.detail = id; S.tab = 'log'; closeSheet(); render(false); }
+  else openPlaceInfo(id);
+}
+
+function viewMap(){
+  const all = mapItems();
+  const nTodo = all.filter(x => x.kind === 'todo').length, nDone = all.length - nTodo;
+  const shown = visibleItems().sort((a, b) => (a.kind === b.kind)
+    ? (a.kind === 'todo' ? (b.created || 0) - (a.created || 0) : String(b.date).localeCompare(String(a.date)))
+    : (a.kind === 'todo' ? -1 : 1));
+  const fc = (f, label) => '<button class="fchip" data-act="mapFilter" data-f="' + f + '" aria-pressed="' + (S.mapFilter === f) + '">' + label + '</button>';
+  let h = '<div class="sec"><h2>우리의 맛집 지도</h2><button class="btn pri" data-act="addPlace">갈 곳 추가</button></div>';
+  h += '<div class="mapbox"><div id="mapHost" class="maphost"></div></div>';
+  h += '<div class="fchips">' + fc('all', '전체 ' + all.length) + fc('todo', '갈 곳 ' + nTodo) + fc('done', '간 곳 ' + nDone) + '</div>';
+  if (!shown.length) return h + emptyBox(S.mapFilter === 'done' ? '아직 다녀온 곳이 없어요.' : '아직 가고 싶은 곳이 없어요.<br>"갈 곳 추가"로 지도에 모아 보세요.');
+  shown.forEach(it => {
+    const tag = it.kind === 'todo' ? '<span class="tag">갈 곳</span>'
+      : '<span class="tag acc">' + (it.upcoming ? '예정' : (it.no ? '제' + it.no + '회 다녀옴' : '다녀옴')) + '</span>';
+    h += '<button class="pl" data-act="openPlace" data-kind="' + it.kind + '" data-id="' + esc(it.id) + '"><span class="pl-h">' + tag + '</span>' +
+      '<span class="rn">' + esc(it.name) + '</span>' +
+      '<span class="ra">' + (esc(it.address) || '위치 미등록') + '</span>' +
+      (it.memo ? '<span class="pl-m">' + esc(it.memo) + '</span>' : '') +
+      (hasPos(it) ? '' : '<span class="pl-m">지도에 표시되지 않아요. 수정해서 "지도에서 찾기"로 위치를 저장해 보세요.</span>') + '</button>';
+  });
+  return h;
+}
+
+function placeLinkList(o){
+  const out = [];
+  const nm = o.name || o.restaurant || '';
+  const link = safeUrl(o.link || o.mapUrl);
+  const host = link ? (link.split('/')[2] || '').toLowerCase() : '';
+  const isNaver = host.indexOf('naver') >= 0, isKakao = host.indexOf('kakao') >= 0;
+  if (link && isNaver) out.push(['네이버 지도', link]);
+  else out.push(['네이버 지도에서 찾기', 'https://map.naver.com/p/search/' + encodeURIComponent(nm)]);
+  if (hasPos(o)) out.push(['카카오맵', 'https://map.kakao.com/link/map/' + encodeURIComponent(nm) + ',' + Number(o.lat) + ',' + Number(o.lng)]);
+  else if (link && isKakao) out.push(['카카오맵', link]);
+  else if (safeUrl(o.placeUrl)) out.push(['카카오맵', safeUrl(o.placeUrl)]);
+  if (link && !isNaver && !isKakao) out.push([(host.indexOf('google') >= 0 || host.indexOf('goo.gl') >= 0) ? '구글 지도' : '링크', link]);
+  return out;
+}
+function placeLinksHtml(o, extra){
+  const out = placeLinkList(o).concat(extra || []);
+  return '<div class="lnks">' + out.map(x => '<a href="' + esc(x[1]) + '" target="_blank" rel="noopener noreferrer">' + x[0] + '</a>').join('') + '</div>';
+}
+
+function searchBlock(){
+  if (!kakaoKeyOk()) return '<p class="hint" style="margin-top:14px">지도에서 가게를 검색하려면 카카오 지도 키 설정이 필요해요. (설정 가이드 9단계) 지금은 직접 적어서 저장할 수 있어요.</p>';
+  return '<div class="lab">지도에서 찾기</div><div class="sbar"><input id="f-q" placeholder="가게 이름 검색 (예: 스시 성수)" enterkeyhint="search" autocomplete="off"><button type="button" class="btn" id="f-qgo">검색</button></div><div id="f-res" aria-live="polite"></div><p class="hint" id="f-pick"></p>';
+}
+function bindSearch(sheet, onPick){
+  const q = sheet.querySelector('#f-q');
+  if (!q) return;
+  const go = sheet.querySelector('#f-qgo'), res = sheet.querySelector('#f-res');
+  let results = [];
+  const run = async () => {
+    const term = q.value.trim();
+    if (!term) return;
+    res.innerHTML = '<p class="hint">찾는 중…</p>';
+    try { await loadKakao(); }
+    catch (e) { res.innerHTML = '<p class="hint" style="color:var(--accent)">' + esc(MapView.err || '지도를 불러오지 못했어요.') + '</p>'; return; }
+    new kakao.maps.services.Places().keywordSearch(term, (data, status) => {
+      const St = kakao.maps.services.Status;
+      if (status === St.OK) {
+        results = data.slice(0, 8);
+        res.innerHTML = results.map((r, i) => '<button type="button" class="sr" data-sr="' + i + '"><span class="sr-n">' + esc(r.place_name) + '</span><span class="sr-a">' + esc(r.road_address_name || r.address_name || '') + '</span>' +
+          (r.category_name ? '<span class="sr-c">' + esc(String(r.category_name).split(' > ').slice(-1)[0]) + '</span>' : '') + '</button>').join('');
+      } else if (status === St.ZERO_RESULT) {
+        res.innerHTML = '<p class="hint">검색 결과가 없어요. 다른 이름으로 찾아보세요.</p>';
+      } else {
+        res.innerHTML = '<p class="hint" style="color:var(--accent)">검색에 실패했어요. 잠시 뒤에 다시 해 주세요.</p>';
+      }
+    }, { size: 8 });
+  };
+  go.addEventListener('click', run);
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); run(); } });
+  res.addEventListener('click', e => {
+    const b = e.target.closest('[data-sr]');
+    if (!b) return;
+    const r = results[Number(b.dataset.sr)];
+    if (!r) return;
+    res.innerHTML = '';
+    onPick({ name: r.place_name, address: r.road_address_name || r.address_name || '', lat: Number(r.y), lng: Number(r.x), placeUrl: String(r.place_url || '').replace(/^http:/, 'https:') });
+  });
+}
+
+function openPlaceSheet(id){
+  const ex = id ? S.wishes.find(x => x.id === id) : null;
+  let pick = ex && hasPos(ex) ? { lat: Number(ex.lat), lng: Number(ex.lng), placeUrl: ex.placeUrl || '' } : null;
+  openSheet(ex ? '갈 곳 수정' : '갈 곳 추가',
+    '<h3>' + (ex ? '갈 곳 수정' : '가고 싶은 곳 추가') + '</h3>' + searchBlock() +
+    '<label for="f-pname">가게 이름</label><input id="f-pname" maxlength="60" value="' + esc(ex ? ex.name : '') + '" placeholder="검색하면 자동으로 채워져요">' +
+    '<label for="f-paddr">위치</label><input id="f-paddr" maxlength="80" value="' + esc(ex ? ex.address : '') + '" placeholder="예: 서울 성동구 성수동">' +
+    '<label for="f-plink">링크</label><input id="f-plink" type="text" inputmode="url" autocapitalize="off" value="' + esc(ex ? (ex.link || '') : '') + '" placeholder="네이버 지도 공유 링크를 붙여넣기">' +
+    '<label for="f-pmemo">메모</label><textarea id="f-pmemo" maxlength="300" placeholder="누가 추천했는지, 먹어 보고 싶은 메뉴 등">' + esc(ex ? (ex.memo || '') : '') + '</textarea>' +
+    '<div class="err" id="err"></div>' +
+    '<div class="actions">' + (ex ? '<button class="btn warn" id="del">삭제</button>' : '<button class="btn" data-act="sheetClose">취소</button>') + '<button class="btn pri" id="save">저장</button></div>',
+    sheet => {
+      const err = sheet.querySelector('#err');
+      const hint = sheet.querySelector('#f-pick');
+      if (hint && pick) hint.textContent = '지도 위치가 저장돼 있어요.';
+      bindSearch(sheet, r => {
+        sheet.querySelector('#f-pname').value = r.name;
+        sheet.querySelector('#f-paddr').value = r.address;
+        const lk = sheet.querySelector('#f-plink');
+        if (!lk.value.trim() && r.placeUrl) lk.value = r.placeUrl;
+        pick = { lat: r.lat, lng: r.lng, placeUrl: r.placeUrl };
+        if (hint) hint.textContent = '"' + r.name + '" 위치가 지도에 저장돼요.';
+      });
+      sheet.querySelector('#save').addEventListener('click', ev => {
+        const name = sheet.querySelector('#f-pname').value.trim();
+        if (!name) { err.textContent = '가게 이름을 입력해 주세요.'; return; }
+        const link = normUrl(sheet.querySelector('#f-plink').value);
+        if (link === null) { err.textContent = '링크 형식을 확인해 주세요.'; return; }
+        const w = {
+          id: ex ? ex.id : 'wish_' + genId(), kind: 'wish', status: ex ? (ex.status || 'todo') : 'todo',
+          name: name, address: sheet.querySelector('#f-paddr').value.trim(), link: link,
+          memo: sheet.querySelector('#f-pmemo').value.trim(),
+          lat: pick ? pick.lat : null, lng: pick ? pick.lng : null, placeUrl: pick ? pick.placeUrl : '',
+          createdAt: ex ? (ex.createdAt || Date.now()) : Date.now(), updatedAt: Date.now()
+        };
+        busy(ev.currentTarget, async () => { await Store.saveWish(w); closeSheet(); toast('저장했어요'); }, err);
+      });
+      const del = sheet.querySelector('#del');
+      if (del) del.addEventListener('click', ev => {
+        if (!del.dataset.sure) { del.dataset.sure = '1'; del.textContent = '정말 삭제'; return; }
+        busy(ev.currentTarget, async () => { await Store.deleteWish(ex.id); closeSheet(); toast('삭제했어요'); }, err);
+      });
+    });
+}
+function openPlaceInfo(id){
+  const w = S.wishes.find(x => x.id === id);
+  if (!w) return;
+  openSheet(w.name,
+    '<h3>' + esc(w.name) + '</h3>' + (w.address ? '<p class="hint">' + esc(w.address) + '</p>' : '') +
+    (w.memo ? '<div class="d-memo">' + esc(w.memo) + '</div>' : '') + placeLinksHtml(w) +
+    '<div class="actions" style="margin-top:18px"><button class="btn" data-act="editPlace" data-id="' + esc(w.id) + '">수정</button><button class="btn pri" data-act="planMeeting" data-id="' + esc(w.id) + '">모임 잡기</button></div>');
+}
+
 /* ---------- events ---------- */
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
@@ -1090,6 +1359,15 @@ document.addEventListener('click', e => {
   const a = t.dataset.act;
   if (gateActions[a]) { gateActions[a](t); return; }
   if (a === 'lbClose') { closeLightbox(); return; }
+  if (a === 'mapFilter') { S.mapFilter = t.dataset.f; render(true); return; }
+  if (a === 'addPlace') { openPlaceSheet(null); return; }
+  if (a === 'openPlace') { openMapItem(t.dataset.kind, t.dataset.id); return; }
+  if (a === 'editPlace') { openPlaceSheet(t.dataset.id); return; }
+  if (a === 'planMeeting') {
+    const w = S.wishes.find(x => x.id === t.dataset.id);
+    if (w) openMeetingSheet(null, { name: w.name, address: w.address, lat: w.lat, lng: w.lng, placeUrl: w.placeUrl, link: w.link, memo: w.memo, wish: w });
+    return;
+  }
   if (a === 'zoom') {
     const list = (S.photos[t.dataset.mid] || {})[t.dataset.member] || [];
     const src = list[Number(t.dataset.i)];
