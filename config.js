@@ -1,14 +1,9 @@
-/* =====================================================================
-   여기에 Firebase 설정을 붙여넣으세요. (설정-가이드.md 의 6단계 참고)
-   따옴표 안의 "여기에_붙여넣기" 부분만 내 값으로 바꾸고 저장하면 돼요.
-   이 파일은 한 번만 만들어 두면, 나중에 index.html을 새로 받아도
-   그대로 쓸 수 있어요.
-   ===================================================================== */
+/* 정상회담 - Firebase 설정값 (jeongsang-hoedam) */
 const FIREBASE_CONFIG = {
-  apiKey: "여기에_붙여넣기",
-  authDomain: "여기에_붙여넣기",
-  projectId: "여기에_붙여넣기",
-  storageBucket: "여기에_붙여넣기",
-  messagingSenderId: "여기에_붙여넣기",
-  appId: "여기에_붙여넣기"
+  apiKey: "AIzaSyCaqMW1jRhBJnQ_bARwNuMj2JifxA0f2b0",
+  authDomain: "jeongsang-hoedam.firebaseapp.com",
+  projectId: "jeongsang-hoedam",
+  storageBucket: "jeongsang-hoedam.firebasestorage.app",
+  messagingSenderId: "664319978959",
+  appId: "1:664319978959:web:819dcdc2e00a1d822ef6ba"
 };
