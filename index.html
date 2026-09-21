@@ -4,7 +4,13 @@
 <meta charset="utf-8">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#FFF1F3">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%A3%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="정상회담">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>정상회담</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -73,7 +79,7 @@ h1{margin:0;font:400 34px/1.1 var(--display);color:var(--accent)}
 
 /* tabs */
 .tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;gap:8px;background:var(--bg);margin:0 -18px;padding:8px 18px 10px}
-.tab{flex:1;min-height:44px;padding:8px 4px;border:2px solid var(--line);border-radius:99px;background:var(--surface);color:var(--ink2);font:400 17px/1.3 var(--display);cursor:pointer}
+.tab{flex:1;min-width:0;min-height:44px;padding:8px 2px;border:2px solid var(--line);border-radius:99px;background:var(--surface);color:var(--ink2);font:400 16px/1.3 var(--display);cursor:pointer}
 .tab[aria-current="page"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 
 /* notes */
@@ -273,6 +279,39 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 .sr-n{display:block;font:400 17px/1.3 var(--display)}
 .sr-a{display:block;font-size:13.5px;color:var(--ink2)}
 .sr-c{display:inline-block;margin-top:2px;padding:0 9px;border-radius:99px;background:var(--surface2);font-size:12.5px;color:var(--ink2)}
+.dexsum{display:flex;align-items:center;gap:14px;margin-top:14px;padding:14px 18px;border-radius:26px;background:var(--surface);border:2px solid var(--line)}
+.dexsum p{margin:0}
+.dexsum b{color:var(--accent);font-size:21px}
+.podium{display:flex;align-items:flex-end;gap:8px;margin-top:8px}
+.pod{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 6px 10px;border:2px solid var(--line);border-radius:26px;background:var(--surface);text-align:center;cursor:pointer}
+.pod.p1{flex:1.3;padding-top:18px;background:var(--surface2);border-color:var(--accent)}
+.pod-r{font:400 14px var(--display);color:var(--accent)}
+.pod-n{font:400 17px/1.25 var(--display)}
+.pod-c{font-size:13px;color:var(--ink2)}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.dcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:26px 8px 12px;border:2px solid var(--line);border-radius:26px;background:var(--surface);text-align:center;cursor:pointer}
+.dcard:active,.pod:active{transform:scale(.98)}
+.dn{font:400 19px/1.25 var(--display)}
+.dcnt{position:absolute;top:10px;right:10px;padding:0 10px;border-radius:99px;background:var(--surface2);color:var(--accent);font:400 14px var(--display)}
+.dnew{position:absolute;top:10px;left:10px;padding:0 10px;border-radius:99px;background:var(--good-bg);color:var(--good);font:400 12.5px var(--display)}
+.dwho{display:flex;justify-content:center;margin-top:2px}
+.dwho .av{margin-left:-5px;box-shadow:0 0 0 2px var(--surface)}
+.dwho .av:first-child{margin-left:0}
+.favs{margin-top:8px;padding:4px 16px;border-radius:26px;background:var(--surface);border:2px solid var(--line)}
+.fav{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:2px dotted var(--line)}
+.fav:last-child{border-bottom:0}
+.fav-n{min-width:52px;font:400 17px var(--display)}
+.fav-v{flex:1;min-width:0}
+.fav-v b{color:var(--accent);font-size:18px}
+.dexhero{display:flex;justify-content:center;padding:6px 0 2px}
+.pk{display:flex;align-items:center;gap:10px;width:100%;margin-top:8px;padding:10px 14px;border:2px solid var(--line);border-radius:20px;background:var(--bg);text-align:left;cursor:pointer}
+.pk-n{display:block;font:400 17px var(--display)}
+.pk-m{display:block;font-size:13.5px;color:var(--ink2)}
+.inst{margin-top:26px;padding:16px 18px;border-radius:26px;background:var(--surface);border:2px dashed var(--line)}
+.inst h3{margin:0 0 4px;font:400 19px var(--display)}
+.inst p{margin:6px 0 0;font-size:14.5px}
+.inst ol{margin:8px 0 0;padding-left:20px;font-size:14.5px}
+.inst .btn{margin-top:10px}
 .gate{max-width:420px;margin:0 auto;padding:44px 0 24px;text-align:center}
 .gate .mascot{margin:0 auto 10px}
 .gate h1{font-size:40px}
@@ -640,10 +679,10 @@ function avatar(mem, cls){
 }
 
 /* ---------- views ---------- */
-function mascot(w){
+function mascot(w, color){
   return '<svg class="mascot" width="' + w + '" viewBox="0 0 96 64" aria-hidden="true">' +
     '<rect class="mk-rice" x="12" y="36" width="72" height="24" rx="12"/>' +
-    '<path class="mk-neta" d="M6 34C6 14 26 8 48 8S90 14 90 34C90 42 70 45 48 45S6 42 6 34Z"/>' +
+    '<path class="mk-neta"' + (color ? ' style="fill:' + color + ';stroke:rgba(0,0,0,.1);stroke-width:1.4"' : '') + ' d="M6 34C6 14 26 8 48 8S90 14 90 34C90 42 70 45 48 45S6 42 6 34Z"/>' +
     '<path class="mk-fat" d="M22 19Q30 13 41 14M60 14Q70 14 76 20"/>' +
     '<circle class="mk-eye" cx="35" cy="27" r="3.3"/><circle class="mk-eye" cx="61" cy="27" r="3.3"/>' +
     '<ellipse class="mk-blush" cx="26" cy="34" rx="5.5" ry="3.2"/><ellipse class="mk-blush" cx="70" cy="34" rx="5.5" ry="3.2"/>' +
@@ -665,10 +704,11 @@ function render(keep){
   else if (S.store) body = viewStore();
   else if (S.tab === 'rank') body = viewRank();
   else if (S.tab === 'map') body = viewMap();
+  else if (S.tab === 'dex') body = viewDex();
   else if (S.tab === 'members') body = viewMembers();
   else body = viewLog();
   const stack = mems.slice(0, 6).map(m => avatar(m)).join('');
-  const tabs = [['log', '기록'], ['rank', '순위'], ['map', '지도'], ['members', '멤버']].map(t =>
+  const tabs = [['log', '기록'], ['rank', '순위'], ['map', '지도'], ['dex', '도감'], ['members', '멤버']].map(t =>
     '<button class="tab" data-act="tab" data-tab="' + t[0] + '"' + (S.tab === t[0] ? ' aria-current="page"' : '') + '>' + t[1] + '</button>').join('');
   app.innerHTML =
     '<header class="top">' + mascot(78) + '<div class="ttl"><h1>정상회담</h1><p class="sub">한 달에 한 번,<br>초밥 먹고 점수 남기는 모임</p></div><div class="stack" aria-label="멤버 ' + mems.length + '명">' + stack + '</div></header>' +
@@ -749,7 +789,7 @@ function viewDetail(){
   if (!m) { S.detail = null; return viewLog(); }
   const st = meetingStats(m.id);
   const att = attendeesOf(m);
-  let h = '<button class="back" data-act="back">‹ ' + (S.store ? '후기 목록으로' : S.tab === 'rank' ? '순위로' : S.tab === 'map' ? '지도로' : '기록으로') + '</button>';
+  let h = '<button class="back" data-act="back">‹ ' + (S.store ? '후기 목록으로' : S.tab === 'rank' ? '순위로' : S.tab === 'map' ? '지도로' : S.tab === 'dex' ? '도감으로' : '기록으로') + '</button>';
   if (safeImg(m.cover)) h += '<button class="cover" data-act="zoomCover" data-mid="' + esc(m.id) + '" aria-label="대표 사진 크게 보기"><img src="' + m.cover + '" alt="대표 사진"></button>';
   h += '<p class="d-date"><span class="no-pill">' + nth(m.id) + ' 정상회담</span>' + longDate(m.date) + '</p><h2 class="d-name">' + esc(m.restaurant) + '</h2>';
   const meta = [];
@@ -883,6 +923,7 @@ function viewMembers(){
       (p.n ? '<div class="sc"><span class="n">' + fmt(p.avg) + '</span>' + pieces(p.avg) + '</div>' : '') +
       (S.mode === 'local' || isMine(p.mem.id) ? '<button class="btn ghost" data-act="rename" data-id="' + esc(p.mem.id) + '">이름 수정</button>' : '') + '</div>';
   });
+  h += installCard();
   if (S.mode === 'db') h += '<div class="acct"><p class="hint">' + esc((S.user && S.user.email) || '') + ' 계정으로 로그인 중</p><button class="btn" data-act="gLogout" style="margin-top:10px">로그아웃</button></div>';
   return h;
 }
@@ -1529,6 +1570,145 @@ function openPlaceInfo(id){
     });
 }
 
+/* ---------- 초밥 도감 ---------- */
+const NETA_ALIAS = {
+  '오도로': '대뱃살', '대토로': '대뱃살', '오오토로': '대뱃살', '대뱃살': '대뱃살',
+  '츄토로': '중뱃살', '주도로': '중뱃살', '중토로': '중뱃살', '쥬토로': '중뱃살',
+  '우니': '성게', '성게알': '성게', '우니성게': '성게',
+  '사케': '연어', '사몬': '연어', '에비': '새우', '아나고': '붕장어', '우나기': '장어',
+  '타마고': '계란', '다마고': '계란', '달걀': '계란', '계란말이': '계란',
+  '이쿠라': '연어알', '호타테': '가리비', '타이': '도미', '히라메': '광어', '부리': '방어',
+  '아지': '전갱이', '사바': '고등어', '시메사바': '고등어', '이카': '오징어', '타코': '문어', '카니': '게',
+  '아카미': '참치 붉은살', '붉은살': '참치 붉은살', '마구로': '참치', '아마에비': '단새우'
+};
+const NETA_COLORS = [
+  [/연어알|이쿠라|명란|날치알/, '#FF6A3D'], [/뱃살|토로/, '#F58C9B'], [/참치|마구로|아카미|붉은살|다랑어/, '#E5566B'],
+  [/연어|사케|사몬/, '#FF8A6B'], [/새우|에비/, '#FFA76A'], [/계란|타마고|다마고|달걀/, '#FFD55E'],
+  [/장어|아나고|우나기/, '#B0703F'], [/성게|우니/, '#FFB43F'], [/고등어|전갱이|사바|아지|삼치|청어|꽁치/, '#8EB2C7'],
+  [/광어|도미|방어|농어|넙치|오징어|한치|문어|가리비|관자|전복|참돔|우럭|해삼|소라|갑오징어/, '#F3E6D6'], [/게|크랩/, '#FF9E8A']
+];
+const NETA_PALETTE = ['#FFB4C1', '#B7E0C2', '#FFE08A', '#C9B6F2', '#9CD3F0', '#FFC49B'];
+function netaColor(name){
+  for (let i = 0; i < NETA_COLORS.length; i++) if (NETA_COLORS[i][0].test(name)) return NETA_COLORS[i][1];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return NETA_PALETTE[h % NETA_PALETTE.length];
+}
+function canonNeta(raw){
+  let n = String(raw || '').replace(/\(.*?\)|（.*?）/g, '').trim();
+  if (!n || n.length > 20) return null;
+  let k = n.replace(/\s+/g, '').toLowerCase().replace(/(초밥|스시|니기리)$/, '');
+  if (!k) return null;
+  if (NETA_ALIAS[k]) { n = NETA_ALIAS[k]; k = n.replace(/\s+/g, '').toLowerCase(); }
+  return { key: k, name: n };
+}
+function calcDex(){
+  const byId = {};
+  S.meetings.forEach(m => { if (m && m.id) byId[m.id] = m; });
+  const map = {};
+  memberList().forEach(mem => {
+    Object.keys(mem.d.entries || {}).forEach(mid => {
+      const m = byId[mid], r = mem.d.entries[mid];
+      if (!m || !r || !r.best) return;
+      const seen = {};
+      String(r.best).split(/[,，、\/·+&\n]|\s+(?:및|그리고|와|과)\s+/).forEach(tok => {
+        const c = canonNeta(tok);
+        if (!c || seen[c.key]) return;
+        seen[c.key] = 1;
+        const e = map[c.key] || (map[c.key] = { key: c.key, spells: {}, picks: [] });
+        e.spells[c.name] = (e.spells[c.name] || 0) + 1;
+        e.picks.push({ mid: mid, mem: mem, date: m.date || '', m: m });
+      });
+    });
+  });
+  const allDates = {};
+  Object.keys(map).forEach(k => map[k].picks.forEach(p => { allDates[p.date] = 1; }));
+  const dates = Object.keys(allDates).sort();
+  const latest = dates[dates.length - 1];
+  const arr = Object.keys(map).map(k => {
+    const e = map[k];
+    const names = Object.keys(e.spells).sort((a, b) => (e.spells[b] - e.spells[a]) || ((a.indexOf(' ') < 0 ? 0 : 1) - (b.indexOf(' ') < 0 ? 0 : 1)));
+    e.name = names[0];
+    e.count = e.picks.length;
+    const ds = e.picks.map(p => p.date).sort();
+    e.first = ds[0]; e.last = ds[ds.length - 1];
+    e.color = netaColor(e.name);
+    e.isNew = dates.length >= 2 && e.first === latest && ds.every(d => d === latest);
+    return e;
+  }).sort((a, b) => (b.count - a.count) || String(b.last).localeCompare(String(a.last)) || a.name.localeCompare(b.name));
+  return arr;
+}
+function dexCard(e){
+  const who = [], seenM = {};
+  e.picks.forEach(p => { if (!seenM[p.mem.id]) { seenM[p.mem.id] = 1; who.push(p.mem); } });
+  return '<button class="dcard" data-act="openDex" data-key="' + esc(e.key) + '">' +
+    (e.isNew ? '<span class="dnew">NEW</span>' : '') + '<span class="dcnt">×' + e.count + '</span>' +
+    mascot(84, e.color) + '<span class="dn">' + esc(e.name) + '</span>' +
+    '<span class="dwho">' + who.slice(0, 4).map(m => avatar(m)).join('') + '</span></button>';
+}
+function viewDex(){
+  const arr = calcDex();
+  let h = '<div class="sec"><h2>초밥 도감</h2></div><p class="hint" style="margin:0">후기의 "오늘의 한 점"이 자동으로 모여요.</p>';
+  if (!arr.length) return h + emptyBox('아직 도감이 비어 있어요.<br>후기에 "오늘의 한 점"을 적으면 여기에 모여요.');
+  h += '<div class="dexsum">' + mascot(52, '#FF8A6B') + '<p>지금까지 <b>' + arr.length + '종</b>의 초밥을<br>최고의 한 점으로 꼽았어요!</p></div>';
+  const top = arr.slice(0, 3);
+  const order = top.length === 3 ? [1, 0, 2] : top.length === 2 ? [1, 0] : [0];
+  h += '<div class="sec" style="margin-top:24px"><h2>우리 모임 최애 TOP ' + top.length + '</h2></div><div class="podium">' +
+    order.map(i => { const e = top[i]; return '<button class="pod p' + (i + 1) + '" data-act="openDex" data-key="' + esc(e.key) + '"><span class="pod-r">' + (i + 1) + '위</span>' + mascot(i === 0 ? 88 : 70, e.color) + '<span class="pod-n">' + esc(e.name) + '</span><span class="pod-c">' + e.count + '번 꼽혔어요</span></button>'; }).join('') + '</div>';
+  h += '<div class="sec" style="margin-top:24px"><h2>전체 도감</h2></div><div class="dgrid">' + arr.map(dexCard).join('') + '</div>';
+  const favs = memberList().map(mem => {
+    let best = null;
+    arr.forEach(e => {
+      const mine = e.picks.filter(p => p.mem.id === mem.id);
+      if (!mine.length) return;
+      const last = mine.map(p => p.date).sort().pop();
+      if (!best || mine.length > best.n || (mine.length === best.n && last > best.last)) best = { e: e, n: mine.length, last: last };
+    });
+    return best ? '<div class="fav">' + avatar(mem, 'lg') + '<span class="fav-n">' + esc(mem.name) + '</span><span class="fav-v"><b>' + esc(best.e.name) + '</b> ' + best.n + '번</span></div>' : '';
+  }).join('');
+  if (favs) h += '<div class="sec" style="margin-top:24px"><h2>멤버별 최애</h2></div><div class="favs">' + favs + '</div>';
+  return h;
+}
+function openDexSheet(key){
+  const e = calcDex().find(x => x.key === key);
+  if (!e) return;
+  const picks = e.picks.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  openSheet(e.name,
+    '<div class="dexhero">' + mascot(130, e.color) + '</div><h3 style="text-align:center">' + esc(e.name) + '</h3>' +
+    '<p class="hint" style="text-align:center;margin-bottom:10px">' + e.count + '번 최고의 한 점으로 꼽혔어요</p>' +
+    picks.map(p => '<button class="pk" data-act="pickOpen" data-id="' + esc(p.mid) + '">' + avatar(p.mem) +
+      '<span><span class="pk-n">' + esc(p.mem.name) + '</span><span class="pk-m">' + esc(nth(p.mid)) + ' ' + esc(p.m.restaurant) + ', ' + shortDate(p.date) + '</span></span></button>').join('') +
+    '<div class="actions" style="margin-top:14px"><button class="btn" data-act="sheetClose">닫기</button></div>');
+}
+
+/* ---------- 홈 화면에 추가 ---------- */
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  if (S.ready && S.tab === 'members' && !S.detail) render(true);
+});
+window.addEventListener('appinstalled', () => { deferredInstall = null; toast('홈 화면에 추가했어요'); if (S.ready) render(true); });
+function isStandalone(){
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+}
+function installCard(){
+  if (isStandalone()) return '';
+  const ua = navigator.userAgent || '';
+  const inApp = /KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|; Line\/|Line\//i.test(ua);
+  const ios = /iPhone|iPad|iPod/i.test(ua);
+  let body;
+  if (deferredInstall && !inApp) {
+    body = '<p>누르면 홈 화면에 앱 아이콘이 생겨요.</p><button class="btn pri wide" data-act="installApp">홈 화면에 추가하기</button>';
+  } else {
+    const steps = ios
+      ? '<ol><li>화면 아래(또는 위)의 <b>공유</b> 버튼(네모에 위쪽 화살표)을 눌러요.</li><li><b>홈 화면에 추가</b>를 눌러요.</li><li>오른쪽 위 <b>추가</b>를 누르면 끝!</li></ol>'
+      : '<ol><li>크롬 오른쪽 위 <b>⋮</b> 메뉴를 눌러요.</li><li><b>홈 화면에 추가</b>(또는 <b>앱 설치</b>)를 눌러요.</li><li><b>추가</b>를 누르면 끝!</li></ol>';
+    body = (inApp ? '<p>지금은 카카오톡 같은 앱 안에서 열려 있어요. 화면 모서리의 <b>⋮ / ⋯ 메뉴</b>에서 <b>다른 브라우저로 열기</b>를 누른 뒤 아래대로 해 주세요.</p>' : '<p>앱처럼 바로 열 수 있어요.</p>') + steps;
+  }
+  return '<div class="inst"><h3>홈 화면에 추가하기</h3>' + body + '</div>';
+}
+
 /* ---------- events ---------- */
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
@@ -1536,6 +1716,12 @@ document.addEventListener('click', e => {
   const a = t.dataset.act;
   if (gateActions[a]) { gateActions[a](t); return; }
   if (a === 'lbClose') { closeLightbox(); return; }
+  if (a === 'openDex') { openDexSheet(t.dataset.key); return; }
+  if (a === 'pickOpen') { closeSheet(); S.detail = t.dataset.id; render(false); return; }
+  if (a === 'installApp') {
+    if (deferredInstall) { const dp = deferredInstall; deferredInstall = null; dp.prompt(); Promise.resolve(dp.userChoice).catch(() => {}).then(() => render(true)); }
+    return;
+  }
   if (a === 'mapFilter') { S.mapFilter = t.dataset.f; S.mapQuery = ''; render(true); return; }
   if (a === 'addPlaceQ') { openPlaceSheet(null, { name: S.mapQuery.trim() }); return; }
   if (a === 'addPlace') { openPlaceSheet(null); return; }
