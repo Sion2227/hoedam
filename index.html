@@ -307,12 +307,13 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 .fav-n{min-width:52px;font:400 17px var(--display)}
 .fav-v{flex:1;min-width:0}
 .fav-v b{color:var(--accent);font-size:18px}
-.dexhero{display:flex;justify-content:center;padding:6px 0 2px}
+.dexhero{display:flex;justify-content:center;padding:6px 0 12px}
 .dimg{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:18px;background:var(--surface2)}
-.dcard .dimg{width:92px;height:92px;aspect-ratio:auto;border-radius:22px}
-.pod .pimg{display:block;width:100%;max-width:70px;aspect-ratio:1/1;object-fit:cover;border-radius:18px;background:var(--surface2)}
-.pod.p1 .pimg{max-width:86px}
-.dexhero .dimg{width:120px;border-radius:24px}
+.dcard .dimg{width:92px;height:69px;aspect-ratio:auto;border-radius:16px}
+.dcard.hasimg{gap:10px}
+.pod .pimg{display:block;width:100%;max-width:64px;aspect-ratio:4/3;object-fit:cover;border-radius:14px;background:var(--surface2);margin-bottom:8px}
+.pod.p1 .pimg{max-width:80px}
+.dexhero .dimg{width:150px;height:auto;aspect-ratio:4/3;border-radius:18px}
 .dexbtns{display:flex;justify-content:center;gap:8px;margin:10px 0 2px}
 .dexstat{margin:6px 0 0;text-align:center;font-size:13.5px;color:var(--ink2);min-height:20px}
 .pk{display:flex;align-items:center;gap:10px;width:100%;margin-top:8px;padding:10px 14px;border:2px solid var(--line);border-radius:20px;background:var(--bg);text-align:left;cursor:pointer}
@@ -376,7 +377,7 @@ const initial = name => Array.from(String(name).trim())[0] || '?';
 const S = {
   ready: false, mode: 'loading', meId: null, profileName: '',
   canMeet: true, canReview: true, error: '',
-  meetings: [], members: {}, photos: {}, tab: 'log', detail: null, gate: 'loading', user: null, gateMsg: '', wishes: [], dexImgs: {}, mapFilter: 'all', mapQuery: '', store: null, memberView: null
+  meetings: [], members: {}, photos: {}, tab: 'log', detail: null, gate: 'loading', user: null, gateMsg: '', wishes: [], dexImgs: {}, mapFilter: 'all', mapQuery: '', store: null, memberView: null, memberSort: 'score'
 };
 
 /* ---------- storage backends ---------- */
@@ -866,7 +867,8 @@ function viewMemberReviews(){
   const byId = {};
   S.meetings.forEach(m => { if (m) byId[m.id] = m; });
   const items = Object.keys(mem.d.entries || {}).filter(k => byId[k] && mem.d.entries[k] && mem.d.entries[k].overall)
-    .map(k => ({ m: byId[k], r: mem.d.entries[k] })).sort((a, b) => byDateDesc(a.m, b.m));
+    .map(k => ({ m: byId[k], r: mem.d.entries[k] }))
+    .sort((a, b) => S.memberSort === 'date' ? byDateDesc(a.m, b.m) : ((b.r.overall - a.r.overall) || byDateDesc(a.m, b.m)));
   const col = k => mean(items.map(x => x.r[k]).filter(v => v > 0));
   const avg = mean(items.map(x => x.r.overall));
   let h = '<button class="back" data-act="memberBack">‹ 멤버로</button>';
@@ -874,6 +876,7 @@ function viewMemberReviews(){
   if (!items.length) return h + emptyBox('아직 남긴 후기가 없어요.');
   h += '<section class="sum"><div class="sum-top"><span class="big">' + fmt(avg) + '</span><div>' + pieces(avg) + '<div class="sum-cnt">' + esc(mem.name) + '님이 준 종합 점수의 평균</div></div></div>' +
     catRows({ neta: col('neta'), shari: col('shari'), value: col('value') }) + '</section>';
+  h += '<div class="fchips" style="margin:0 0 4px"><button class="fchip" data-act="memberSort" data-s="score" aria-pressed="' + (S.memberSort !== 'date') + '">평점 높은 순</button><button class="fchip" data-act="memberSort" data-s="date" aria-pressed="' + (S.memberSort === 'date') + '">최신순</button></div>';
   items.forEach(x => {
     const m = x.m, r = x.r;
     const det = [['neta', '네타'], ['shari', '샤리'], ['value', '가성비']].filter(c => r[c[0]] > 0).map(c => '<span>' + c[1] + ' ' + r[c[0]] + '</span>').join('');
@@ -1086,13 +1089,15 @@ const DEX_MAX = 48000;
 function squareFromImage(im){
   const W = im.naturalWidth, H = im.naturalHeight;
   if (!W || !H) throw new Error('size');
-  const side = Math.min(W, H), sx = (W - side) / 2, sy = (H - side) / 2;
+  let cw = W, ch = W * 3 / 4;
+  if (ch > H) { ch = H; cw = H * 4 / 3; }
+  const sx = (W - cw) / 2, sy = (H - ch) / 2;
   for (const D of [400, 340, 280, 240]) {
     const c = document.createElement('canvas');
-    c.width = D; c.height = D;
+    c.width = D; c.height = Math.round(D * 0.75);
     const x = c.getContext('2d');
-    x.fillStyle = '#fff'; x.fillRect(0, 0, D, D);
-    x.drawImage(im, sx, sy, side, side, 0, 0, D, D);
+    x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    x.drawImage(im, sx, sy, cw, ch, 0, 0, c.width, c.height);
     for (const q of [0.78, 0.66, 0.55, 0.45]) {
       const u = c.toDataURL('image/jpeg', q);
       if (u.length <= DEX_MAX && safeImg(u)) return u;
@@ -1752,7 +1757,7 @@ function openDexSheet(key){
   openSheet(e.name,
     '<div class="dexhero">' + (hasImg ? '<img class="dimg" src="' + S.dexImgs[e.key] + '" alt="' + esc(e.name) + '">' : mascot(130, e.color)) + '</div><h3 style="text-align:center;margin-top:8px">' + esc(e.name) + '</h3>' +
     '<p class="hint" style="text-align:center;margin-bottom:6px">' + e.count + '번 최고의 한 점으로 꼽혔어요</p>' +
-    (S.canMeet ? '<div class="dexbtns"><button type="button" class="btn" data-dexadd="1">' + (hasImg ? '그림 바꾸기' : '그림 넣기') + '</button>' + (hasImg ? '<button type="button" class="btn ghost" data-dexdel="1">그림 지우기</button>' : '') + '</div><input type="file" id="f-dexfile" accept="image/*" hidden><p class="dexstat" id="dexstat" aria-live="polite">' + (hasImg ? '' : '초밥이 가운데 오는 그림이 예쁘게 잘려요.') + '</p>' : '') +
+    (S.canMeet ? '<div class="dexbtns"><button type="button" class="btn" data-dexadd="1">' + (hasImg ? '그림 바꾸기' : '그림 넣기') + '</button>' + (hasImg ? '<button type="button" class="btn ghost" data-dexdel="1">그림 지우기</button>' : '') + '</div><input type="file" id="f-dexfile" accept="image/*" hidden><p class="dexstat" id="dexstat" aria-live="polite">' + (hasImg ? '' : '가로로 긴 그림을 가운데 기준으로 잘라서 보여줘요.') + '</p>' : '') +
     picks.map(p => '<button class="pk" data-act="pickOpen" data-id="' + esc(p.mid) + '">' + avatar(p.mem) +
       '<span><span class="pk-n">' + esc(p.mem.name) + '</span><span class="pk-m">' + esc(nth(p.mid)) + ' ' + esc(p.m.restaurant) + ', ' + shortDate(p.date) + '</span></span></button>').join('') +
     '<div class="actions" style="margin-top:14px"><button class="btn" data-act="sheetClose">닫기</button></div>',
@@ -1857,6 +1862,7 @@ document.addEventListener('click', e => {
   if (a === 'tab') { S.tab = t.dataset.tab; S.detail = null; S.store = null; S.memberView = null; render(false); }
   else if (a === 'openMember') { S.memberView = t.dataset.id; render(false); }
   else if (a === 'memberBack') { S.memberView = null; render(false); }
+  else if (a === 'memberSort') { S.memberSort = t.dataset.s; render(true); }
   else if (a === 'openStore') { S.store = t.dataset.key; render(false); }
   else if (a === 'storeBack') { S.store = null; render(false); }
   else if (a === 'open') { S.detail = t.dataset.id; render(false); }
