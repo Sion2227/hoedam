@@ -233,6 +233,11 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 .pstat{margin-top:6px;font-size:14px;color:var(--ink2);min-height:20px}
 .lb{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.92);padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);cursor:zoom-out}
 .lb img{max-width:100%;max-height:100%;object-fit:contain}
+.lb .lb-set{top:auto;right:auto;bottom:calc(22px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);width:auto;height:auto;padding:12px 22px;border-radius:99px;background:var(--accent);color:var(--accent-ink);font:400 16px var(--display)}
+.cv{grid-column:1/-1;display:block;height:150px;margin:-4px -4px 4px;border-radius:20px;overflow:hidden;background:var(--surface2)}
+.cv img{display:block;width:100%;height:100%;object-fit:cover}
+.cover{display:block;width:100%;height:200px;margin-top:12px;padding:0;border:0;border-radius:26px;overflow:hidden;background:var(--surface2);cursor:zoom-in}
+.cover img{display:block;width:100%;height:100%;object-fit:cover}
 .lb button{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:14px;width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.16);color:#fff;font-size:22px;cursor:pointer}
 
 .no{display:block;font:400 14px/1.3 var(--display);color:var(--accent)}
@@ -698,7 +703,8 @@ function rowHtml(m, st, upcoming){
   const right = upcoming
     ? '<span class="tag">예정</span>'
     : '<span class="n">' + fmt(st.overall) + '</span>' + pieces(st.overall);
-  return '<button class="row" data-act="open" data-id="' + esc(m.id) + '">' +
+  const cvHtml = safeImg(m.cover) ? '<span class="cv"><img src="' + m.cover + '" alt="" loading="lazy"></span>' : '';
+  return '<button class="row" data-act="open" data-id="' + esc(m.id) + '">' + cvHtml +
     '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span></span>' +
     '<span><span class="no">' + nth(m.id) + '</span><span class="rn">' + esc(m.restaurant) + '</span>' + (m.area ? '<span class="ra">' + esc(m.area) + '</span>' : '') +
     (upcoming ? '' : '<span class="chips">' + chips + '</span>') + '</span>' +
@@ -744,6 +750,7 @@ function viewDetail(){
   const st = meetingStats(m.id);
   const att = attendeesOf(m);
   let h = '<button class="back" data-act="back">‹ ' + (S.store ? '후기 목록으로' : S.tab === 'rank' ? '순위로' : S.tab === 'map' ? '지도로' : '기록으로') + '</button>';
+  if (safeImg(m.cover)) h += '<button class="cover" data-act="zoomCover" data-mid="' + esc(m.id) + '" aria-label="대표 사진 크게 보기"><img src="' + m.cover + '" alt="대표 사진"></button>';
   h += '<p class="d-date"><span class="no-pill">' + nth(m.id) + ' 정상회담</span>' + longDate(m.date) + '</p><h2 class="d-name">' + esc(m.restaurant) + '</h2>';
   const meta = [];
   if (m.area) meta.push('<span>' + esc(m.area) + '</span>');
@@ -961,9 +968,37 @@ async function compressImage(file){
   }
   throw new Error('too_big');
 }
-function openLightbox(src){
+const COVER_MAX = 60000;
+function coverFromImage(im){
+  const W = im.naturalWidth, H = im.naturalHeight;
+  if (!W || !H) throw new Error('size');
+  for (const D of [520, 440, 360, 300]) {
+    const sc = Math.min(1, D / Math.max(W, H));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(W * sc)); c.height = Math.max(1, Math.round(H * sc));
+    const x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    x.drawImage(im, 0, 0, c.width, c.height);
+    for (const q of [0.72, 0.6, 0.5]) {
+      const u = c.toDataURL('image/jpeg', q);
+      if (u.length <= COVER_MAX && safeImg(u)) return u;
+    }
+  }
+  throw new Error('too_big');
+}
+async function coverFromFile(file){ return coverFromImage(await loadImage(file)); }
+function coverFromData(src){
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => { try { res(coverFromImage(im)); } catch (e) { rej(e); } };
+    im.onerror = () => rej(new Error('load'));
+    im.src = src;
+  });
+}
+function openLightbox(src, ctx){
   const lb = $('#lightbox');
-  lb.innerHTML = '<div class="lb" data-act="lbClose"><img src="' + src + '" alt="후기 사진"><button type="button" data-act="lbClose" aria-label="닫기">×</button></div>';
+  const setBtn = (ctx && S.canMeet) ? '<button type="button" class="lb-set" data-act="setCover" data-mid="' + esc(ctx.mid) + '" data-member="' + esc(ctx.member) + '" data-i="' + esc(ctx.i) + '">대표 사진으로 지정</button>' : '';
+  lb.innerHTML = '<div class="lb" data-act="lbClose"><img src="' + src + '" alt="사진"><button type="button" data-act="lbClose" aria-label="닫기">×</button>' + setBtn + '</div>';
 }
 function closeLightbox(){ $('#lightbox').innerHTML = ''; }
 
@@ -975,6 +1010,8 @@ function openMeetingSheet(id, pre){
   const v = ex || (pre ? { restaurant: pre.name || '', date: todayStr(), area: shortArea(pre.address), price: '', memo: pre.memo || '', mapUrl: pre.link || pre.placeUrl || '', instaUrl: '', lat: pre.lat, lng: pre.lng, placeUrl: pre.placeUrl || '' }
     : { restaurant: '', date: todayStr(), area: '', price: '', memo: '', mapUrl: '', instaUrl: '' });
   let pick = hasPos(v) ? { lat: Number(v.lat), lng: Number(v.lng), placeUrl: v.placeUrl || '' } : null;
+  let cover = safeImg(v.cover) ? v.cover : '';
+  let coverBusy = false;
   openSheet(ex ? '모임 수정' : '모임 추가',
     '<h3>' + (ex ? '모임 정보 수정' : '모임 추가') + '</h3>' +
     searchBlock() +
@@ -989,6 +1026,7 @@ function openMeetingSheet(id, pre){
     (mems.length ? '<div class="lab">참석 멤버 <span style="font-family:var(--sans);font-size:14px;color:var(--ink2)">(눌러서 선택)</span></div><div class="who multi" id="f-att" role="group" aria-label="참석 멤버">' +
       mems.map(x => '<button type="button" data-att="' + esc(x.id) + '" aria-pressed="' + (attSel.indexOf(x.id) >= 0) + '">' + avatar(x) + esc(x.name) + '</button>').join('') + '</div>' : '') +
     '<label for="f-memo">메모</label><textarea id="f-memo" maxlength="300" placeholder="예약 정보, 메뉴 구성 등">' + esc(v.memo) + '</textarea>' +
+    '<div class="lab">대표 사진</div><div class="pgrid" id="cvbox"></div><input type="file" id="f-cover" accept="image/*" hidden><div class="pstat" id="cvstat" aria-live="polite">기록 첫 화면의 모임 카드 위에 보여요.</div>' +
     '<div class="err" id="err"></div>' +
     '<div class="actions">' + (ex ? '<button class="btn warn" id="del">삭제</button>' : '<button class="btn" data-act="sheetClose">취소</button>') +
     '<button class="btn pri" id="save">저장</button></div>',
@@ -1004,13 +1042,32 @@ function openMeetingSheet(id, pre){
         pick = { lat: r.lat, lng: r.lng, placeUrl: r.placeUrl };
         if (pickHint) pickHint.textContent = '"' + r.name + '" 위치가 지도에 저장돼요.';
       });
+      const cvbox = sheet.querySelector('#cvbox'), cvstat = sheet.querySelector('#cvstat'), cvfile = sheet.querySelector('#f-cover');
+      const drawCover = () => {
+        cvbox.innerHTML = cover
+          ? '<div class="pth" style="width:132px;height:88px"><img src="' + cover + '" alt="대표 사진"><button type="button" data-cvdel="1" aria-label="대표 사진 삭제">×</button></div>'
+          : '<button type="button" class="padd" data-cvadd="1">+ 사진 추가</button>';
+      };
+      drawCover();
+      cvfile.addEventListener('change', async () => {
+        const f = (cvfile.files || [])[0];
+        cvfile.value = '';
+        if (!f) return;
+        coverBusy = true; cvstat.textContent = '사진을 처리하는 중…';
+        try { cover = await coverFromFile(f); drawCover(); cvstat.textContent = ''; }
+        catch (e) { cvstat.textContent = '사진을 불러오지 못했어요. 다른 사진으로 해 보세요.'; }
+        coverBusy = false;
+      });
       sheet.addEventListener('click', e => {
+        if (e.target.closest('[data-cvadd]')) { cvfile.click(); return; }
+        if (e.target.closest('[data-cvdel]')) { cover = ''; drawCover(); return; }
         const b = e.target.closest('[data-att]');
         if (b) b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
       });
       sheet.querySelector('#save').addEventListener('click', ev => {
         const name = sheet.querySelector('#f-name').value.trim();
         const date = sheet.querySelector('#f-date').value;
+        if (coverBusy) { err.textContent = '사진을 처리하는 중이에요. 잠시만 기다려 주세요.'; return; }
         if (!name) { err.textContent = '가게 이름을 입력해 주세요.'; return; }
         if (!date) { err.textContent = '날짜를 골라 주세요.'; return; }
         const mapUrl = normUrl(sheet.querySelector('#f-map').value);
@@ -1026,6 +1083,7 @@ function openMeetingSheet(id, pre){
           memo: sheet.querySelector('#f-memo').value.trim(),
           mapUrl: mapUrl, instaUrl: instaUrl, no: noVal > 0 ? noVal : null,
           lat: pick ? pick.lat : null, lng: pick ? pick.lng : null, placeUrl: pick ? pick.placeUrl : '',
+          cover: cover,
           createdAt: ex ? (ex.createdAt || Date.now()) : Date.now(), updatedAt: Date.now()
         };
         if (sheet.querySelector('#f-att')) m.attendees = Array.from(sheet.querySelectorAll('[data-att][aria-pressed="true"]')).map(b => b.dataset.att);
@@ -1491,7 +1549,23 @@ document.addEventListener('click', e => {
   if (a === 'zoom') {
     const list = (S.photos[t.dataset.mid] || {})[t.dataset.member] || [];
     const src = list[Number(t.dataset.i)];
-    if (src && safeImg(src)) openLightbox(src);
+    if (src && safeImg(src)) openLightbox(src, { mid: t.dataset.mid, member: t.dataset.member, i: t.dataset.i });
+    return;
+  }
+  if (a === 'zoomCover') {
+    const cm = S.meetings.find(x => x.id === t.dataset.mid);
+    if (cm && safeImg(cm.cover)) openLightbox(cm.cover);
+    return;
+  }
+  if (a === 'setCover') {
+    const sm = S.meetings.find(x => x.id === t.dataset.mid);
+    const ssrc = ((S.photos[t.dataset.mid] || {})[t.dataset.member] || [])[Number(t.dataset.i)];
+    if (sm && ssrc) {
+      toast('대표 사진으로 지정하는 중…');
+      coverFromData(ssrc).then(u => Store.saveMeeting(Object.assign({}, sm, { cover: u, updatedAt: Date.now() })))
+        .then(() => { closeLightbox(); toast('대표 사진으로 지정했어요'); })
+        .catch(e => { console.error(e); toast('지정하지 못했어요'); });
+    }
     return;
   }
   if (a === 'sheetClose') {
