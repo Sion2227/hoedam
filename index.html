@@ -163,9 +163,15 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 
 /* rank + members */
 .rank{list-style:none;margin:8px 0 0;padding:0}
-.rank li{display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;margin-top:10px;padding:14px;border:2px solid var(--line);border-radius:26px;background:var(--surface)}
+.rank li{margin-top:10px}
+.rkrow{display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;width:100%;padding:14px;border:2px solid var(--line);border-radius:26px;background:var(--surface);text-align:left;cursor:pointer}
+.rkrow:active{transform:scale(.99)}
+.visit{margin-top:22px}
+.visit-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-bottom:8px}
+.visit-d{font-size:14px;color:var(--ink2)}
+.visit-h .btn{margin-left:auto}
 .rk{font:400 28px/1 var(--display);color:var(--ink2);text-align:center}
-.rank li:first-child{background:var(--surface2)}
+.rank li:first-child .rkrow{background:var(--surface2)}
 .rank li:first-child .rk{color:var(--accent)}
 .mem{display:flex;align-items:center;gap:12px;margin-top:10px;padding:14px;border:2px solid var(--line);border-radius:26px;background:var(--surface)}
 .mem .grow{flex:1;min-width:0}
@@ -315,7 +321,7 @@ const initial = name => Array.from(String(name).trim())[0] || '?';
 const S = {
   ready: false, mode: 'loading', meId: null, profileName: '',
   canMeet: true, canReview: true, error: '',
-  meetings: [], members: {}, photos: {}, tab: 'log', detail: null, gate: 'loading', user: null, gateMsg: '', wishes: [], mapFilter: 'all', mapQuery: ''
+  meetings: [], members: {}, photos: {}, tab: 'log', detail: null, gate: 'loading', user: null, gateMsg: '', wishes: [], mapFilter: 'all', mapQuery: '', store: null
 };
 
 /* ---------- storage backends ---------- */
@@ -355,7 +361,7 @@ function stopListeners(){
   Object.keys(PhotoSubs).forEach(k => { try { PhotoSubs[k](); } catch (e) {} delete PhotoSubs[k]; });
 }
 function resetData(){
-  S.meetings = []; S.wishes = []; S.members = {}; S.photos = {}; S.ready = false; S.detail = null; S.tab = 'log'; S.error = '';
+  S.meetings = []; S.wishes = []; S.members = {}; S.photos = {}; S.ready = false; S.detail = null; S.store = null; S.tab = 'log'; S.error = '';
 }
 function startListeners(){
   let gotM = false, gotR = false;
@@ -651,13 +657,14 @@ function render(keep){
   const mems = memberList();
   let body;
   if (S.detail) body = viewDetail();
+  else if (S.store) body = viewStore();
   else if (S.tab === 'rank') body = viewRank();
   else if (S.tab === 'map') body = viewMap();
   else if (S.tab === 'members') body = viewMembers();
   else body = viewLog();
   const stack = mems.slice(0, 6).map(m => avatar(m)).join('');
   const tabs = [['log', '기록'], ['rank', '순위'], ['map', '지도'], ['members', '멤버']].map(t =>
-    '<button class="tab" data-act="tab" data-tab="' + t[0] + '"' + (!S.detail && S.tab === t[0] || (S.detail && t[0] === 'log') ? ' aria-current="page"' : '') + '>' + t[1] + '</button>').join('');
+    '<button class="tab" data-act="tab" data-tab="' + t[0] + '"' + (S.tab === t[0] ? ' aria-current="page"' : '') + '>' + t[1] + '</button>').join('');
   app.innerHTML =
     '<header class="top">' + mascot(78) + '<div class="ttl"><h1>정상회담</h1><p class="sub">한 달에 한 번,<br>초밥 먹고 점수 남기는 모임</p></div><div class="stack" aria-label="멤버 ' + mems.length + '명">' + stack + '</div></header>' +
     '<nav class="tabs" aria-label="메뉴">' + tabs + '</nav>' + notices() + '<main>' + body + '</main>';
@@ -736,7 +743,7 @@ function viewDetail(){
   if (!m) { S.detail = null; return viewLog(); }
   const st = meetingStats(m.id);
   const att = attendeesOf(m);
-  let h = '<button class="back" data-act="back">‹ 기록으로</button>';
+  let h = '<button class="back" data-act="back">‹ ' + (S.store ? '후기 목록으로' : S.tab === 'rank' ? '순위로' : S.tab === 'map' ? '지도로' : '기록으로') + '</button>';
   h += '<p class="d-date"><span class="no-pill">' + nth(m.id) + ' 정상회담</span>' + longDate(m.date) + '</p><h2 class="d-name">' + esc(m.restaurant) + '</h2>';
   const meta = [];
   if (m.area) meta.push('<span>' + esc(m.area) + '</span>');
@@ -783,27 +790,58 @@ function viewDetail(){
   return h;
 }
 
+const normKey = t => String(t || '').trim().toLowerCase().replace(/\s+/g, '');
 function viewRank(){
   const groups = {};
   S.meetings.forEach(m => {
     if (!m || !m.restaurant || !m.date) return;
     const st = meetingStats(m.id);
     if (st.overall == null) return;
-    const key = m.restaurant.trim().toLowerCase().replace(/\s+/g, '');
+    const key = normKey(m.restaurant);
     const g = groups[key] || (groups[key] = { list: [], name: m.restaurant, last: '' });
     g.list.push(st.overall);
     if (m.date > g.last) { g.last = m.date; g.name = m.restaurant; }
   });
-  const arr = Object.keys(groups).map(k => ({ name: groups[k].name, avg: mean(groups[k].list), n: groups[k].list.length, last: groups[k].last }))
+  const arr = Object.keys(groups).map(k => ({ key: k, name: groups[k].name, avg: mean(groups[k].list), n: groups[k].list.length, last: groups[k].last }))
     .sort((a, b) => b.avg - a.avg || b.n - a.n);
   let h = '<div class="sec"><h2>가게 순위</h2></div>';
   if (!arr.length) return h + emptyBox('평가가 쌓이면 순위가 만들어져요.');
-  h += '<p class="hint" style="margin:0">모임별 종합 점수의 평균이에요. 같은 가게를 다시 가면 방문 횟수가 늘어요.</p><ol class="rank">';
+  h += '<p class="hint" style="margin:0">모임별 종합 점수의 평균이에요. 가게를 누르면 후기를 볼 수 있어요.</p><ol class="rank">';
   arr.forEach((g, i) => {
-    h += '<li><span class="rk">' + (i + 1) + '</span><span><span class="rn">' + esc(g.name) + '</span><span class="ra">방문 ' + g.n + '회, 마지막 ' + shortDate(g.last) + '</span></span>' +
-      '<span class="sc"><span class="n">' + fmt(g.avg) + '</span>' + pieces(g.avg) + '</span></li>';
+    h += '<li><button class="rkrow" data-act="openStore" data-key="' + esc(g.key) + '"><span class="rk">' + (i + 1) + '</span><span><span class="rn">' + esc(g.name) + '</span><span class="ra">방문 ' + g.n + '회, 마지막 ' + shortDate(g.last) + '</span></span>' +
+      '<span class="sc"><span class="n">' + fmt(g.avg) + '</span>' + pieces(g.avg) + '</span></button></li>';
   });
   return h + '</ol>';
+}
+
+function viewStore(){
+  const list = S.meetings.filter(m => m && m.restaurant && m.date && normKey(m.restaurant) === S.store)
+    .map(m => ({ m: m, st: meetingStats(m.id) })).filter(x => x.st.rs.length).sort((a, b) => byDateDesc(a.m, b.m));
+  if (!list.length) { S.store = null; return viewRank(); }
+  const first = list[0].m;
+  const avg = mean(list.map(x => x.st.overall));
+  let h = '<button class="back" data-act="storeBack">‹ 순위로</button>';
+  h += '<p class="d-date">' + list.length + '번 방문했어요</p><h2 class="d-name">' + esc(first.restaurant) + '</h2>';
+  if (first.area) h += '<div class="d-meta"><span>' + esc(first.area) + '</span></div>';
+  h += placeLinksHtml(first);
+  h += '<section class="sum"><div class="sum-top"><span class="big">' + fmt(avg) + '</span><div>' + pieces(avg) + '<div class="sum-cnt">모임별 종합 점수의 평균</div></div></div></section>';
+  list.forEach(x => {
+    const m = x.m, st = x.st;
+    h += '<section class="visit"><div class="visit-h"><span class="no-pill">' + esc(nth(m.id)) + '</span><span class="visit-d">' + longDate(m.date) + '</span>' +
+      '<button class="btn ghost" data-act="open" data-id="' + esc(m.id) + '">사진·상세 보기</button></div>' +
+      '<div class="rv-s" style="margin:0 0 10px"><b>' + fmt(st.overall) + '</b>' + pieces(st.overall) + '<span class="sum-cnt">' + st.rs.length + '명 평가</span></div>';
+    st.rs.forEach(y => {
+      const r = y.r, mem = y.mem;
+      const det = [['neta', '네타'], ['shari', '샤리'], ['value', '가성비']].filter(c => r[c[0]] > 0).map(c => '<span>' + c[1] + ' ' + r[c[0]] + '</span>').join('');
+      h += '<div class="rv"><div class="rv-h">' + avatar(mem, 'lg') + '<span class="nm">' + esc(mem.name) + '</span></div>' +
+        '<div class="rv-s"><b>' + r.overall + '</b>' + pieces(r.overall) + '</div>' +
+        (det ? '<div class="rv-d">' + det + '</div>' : '') +
+        (r.best ? '<div class="rv-best"><b>오늘의 한 점</b>&nbsp; ' + esc(r.best) + '</div>' : '') +
+        (r.comment ? '<p>' + esc(r.comment) + '</p>' : '') + '</div>';
+    });
+    h += '</section>';
+  });
+  return h;
 }
 
 function viewMembers(){
@@ -1243,7 +1281,7 @@ function drawPins(){
   }
 }
 function openMapItem(kind, id){
-  if (kind === 'done') { S.detail = id; S.tab = 'log'; closeSheet(); render(false); }
+  if (kind === 'done') { S.detail = id; closeSheet(); render(false); }
   else openPlaceInfo(id);
 }
 
@@ -1460,7 +1498,9 @@ document.addEventListener('click', e => {
     if (t.classList.contains('backdrop') && e.target !== t) return;
     closeSheet(); return;
   }
-  if (a === 'tab') { S.tab = t.dataset.tab; S.detail = null; render(false); }
+  if (a === 'tab') { S.tab = t.dataset.tab; S.detail = null; S.store = null; render(false); }
+  else if (a === 'openStore') { S.store = t.dataset.key; render(false); }
+  else if (a === 'storeBack') { S.store = null; render(false); }
   else if (a === 'open') { S.detail = t.dataset.id; render(false); }
   else if (a === 'back') { S.detail = null; render(false); }
   else if (a === 'addMeeting') openMeetingSheet(null);
