@@ -395,6 +395,7 @@ h2{font-size:18px}
 .sheet label,.lab{font:400 14px/1.4 var(--sans);color:var(--ink2)}
 .sheet input,.sheet textarea{border-radius:12px}
 .gate h1{font-size:32px}
+button.mem{border:1px solid var(--line);background:var(--surface);text-align:left;cursor:pointer;width:100%}
 .row .chips{grid-column:2/-1;flex-wrap:nowrap;margin-top:0;overflow:hidden}
 .attn{margin-left:8px;font:400 13.5px var(--sans);color:var(--ink2);white-space:nowrap}
 .mem .nm{display:flex;flex-wrap:wrap;align-items:baseline}
@@ -439,12 +440,13 @@ const initial = name => Array.from(String(name).trim())[0] || '?';
 const S = {
   ready: false, mode: 'loading', meId: null, profileName: '',
   canMeet: true, canReview: true, error: '',
-  meetings: [], members: {}, photos: {}, tab: 'log', detail: null, gate: 'loading', user: null, gateMsg: '', wishes: [], dexImgs: {}, mapFilter: 'all', mapQuery: '', store: null, memberView: null, memberSort: 'score', season: null, seasonView: false, seasonEdit: false, seasonAdd: -1, seasonConfirm: false, seasonJump: false
+  meetings: [], members: {}, photos: {}, tab: 'log', detail: null, gate: 'loading', user: null, gateMsg: '', wishes: [], dexImgs: {}, mapFilter: 'all', mapQuery: '', store: null, memberView: null, memberSort: 'score', season: null, seasonView: false, seasonEdit: false, seasonAdd: -1, seasonConfirm: false, seasonJump: false,
+  personal: [], logSub: 'meetings', personalMemberId: null, personalEntryId: null, personalOrigin: null
 };
 
 /* ---------- storage backends ---------- */
 const Store = {
-  saveMeeting: async () => {}, deleteMeeting: async () => {}, updateMember: async () => {}, savePhotos: async () => {}, saveWish: async () => {}, deleteWish: async () => {}, saveDex: async () => {}, deleteDex: async () => {}, saveSeason: async () => {}, resetSeason: async () => {}
+  saveMeeting: async () => {}, deleteMeeting: async () => {}, updateMember: async () => {}, savePhotos: async () => {}, saveWish: async () => {}, deleteWish: async () => {}, saveDex: async () => {}, deleteDex: async () => {}, saveSeason: async () => {}, resetSeason: async () => {}, savePersonal: async () => {}, deletePersonal: async () => {}
 };
 
 const safeImg = u => typeof u === 'string' && u.length < 150000 && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(u);
@@ -480,7 +482,7 @@ function stopListeners(){
   Object.keys(PhotoSubs).forEach(k => { try { PhotoSubs[k](); } catch (e) {} delete PhotoSubs[k]; });
 }
 function resetData(){
-  S.meetings = []; S.wishes = []; S.dexImgs = {}; S.season = null; S.seasonView = false; S.seasonEdit = false; S.members = {}; S.photos = {}; S.ready = false; S.detail = null; S.store = null; S.memberView = null; S.tab = 'log'; S.error = '';
+  S.meetings = []; S.wishes = []; S.dexImgs = {}; S.season = null; S.seasonView = false; S.seasonEdit = false; S.personal = []; S.logSub = 'meetings'; S.personalMemberId = null; S.personalEntryId = null; S.personalOrigin = null; S.members = {}; S.photos = {}; S.ready = false; S.detail = null; S.store = null; S.memberView = null; S.tab = 'log'; S.error = '';
 }
 function startListeners(){
   let gotM = false, gotR = false;
@@ -488,7 +490,8 @@ function startListeners(){
   const onErr = e => { S.error = '데이터를 불러오지 못했어요 (' + (e && e.code ? e.code : 'error') + '). 새로고침해 주세요.'; S.ready = true; render(true); };
   listeners.push(fs.collection('meetings').onSnapshot(snap => {
     const all = snap.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
-    S.meetings = all.filter(x => x.kind !== 'wish' && x.kind !== 'dex' && x.kind !== 'season');
+    S.meetings = all.filter(x => x.kind !== 'wish' && x.kind !== 'dex' && x.kind !== 'season' && x.kind !== 'personal');
+    S.personal = all.filter(x => x.kind === 'personal');
     const sd = all.find(x => x.kind === 'season');
     S.season = sd && sd.months && typeof sd.months === 'object' ? sd.months : null;
     S.wishes = all.filter(x => x.kind === 'wish');
@@ -540,6 +543,8 @@ async function initCloud(){
   Store.deleteMeeting = async id => { await withTimeout(fs.collection('meetings').doc(id).delete(), 15000); };
   Store.saveWish = Store.saveMeeting;
   Store.deleteWish = Store.deleteMeeting;
+  Store.savePersonal = Store.saveMeeting;
+  Store.deletePersonal = Store.deleteMeeting;
   Store.saveSeason = async months => { await withTimeout(fs.collection('meetings').doc('season_table').set({ kind: 'season', months: months, updatedAt: Date.now() }), 15000); };
   Store.resetSeason = async () => { await withTimeout(fs.collection('meetings').doc('season_table').delete(), 15000); };
   Store.saveDex = async (key, img) => { await withTimeout(fs.collection('meetings').doc(dexId(key)).set({ kind: 'dex', key: key, img: img, updatedAt: Date.now() }), 15000); };
@@ -572,6 +577,10 @@ function syncPhotos(){
   if (S.mode !== 'db' || !fs || S.gate !== 'ready') return;
   const want = {};
   if (S.detail) memberList().forEach(mem => { want[S.detail + '|' + mem.id] = [S.detail, mem.id]; });
+  if (S.personalEntryId) {
+    const pp = S.personal.find(x => x.id === S.personalEntryId);
+    if (pp) want[S.personalEntryId + '|' + pp.memberId] = [S.personalEntryId, pp.memberId];
+  }
   Object.keys(PhotoSubs).forEach(k => { if (!want[k]) { PhotoSubs[k](); delete PhotoSubs[k]; } });
   Object.keys(want).forEach(k => {
     if (PhotoSubs[k]) return;
@@ -669,7 +678,7 @@ function initLocal(){
   try {
     const j = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (j) {
-      S.meetings = j.meetings || []; S.members = j.members || {}; S.wishes = j.wishes || []; S.season = j.season || null;
+      S.meetings = j.meetings || []; S.members = j.members || {}; S.wishes = j.wishes || []; S.season = j.season || null; S.personal = j.personal || [];
       Object.keys(j.dexImgs || {}).forEach(k => { if (safeImg(j.dexImgs[k])) S.dexImgs[k] = j.dexImgs[k]; });
     }
   } catch (e) {}
@@ -688,7 +697,7 @@ function initLocal(){
     render(true);
   };
   const persist = () => {
-    try { localStorage.setItem(KEY, JSON.stringify({ meetings: S.meetings, members: S.members, wishes: S.wishes, dexImgs: S.dexImgs, season: S.season })); }
+    try { localStorage.setItem(KEY, JSON.stringify({ meetings: S.meetings, members: S.members, wishes: S.wishes, dexImgs: S.dexImgs, season: S.season, personal: S.personal })); }
     catch (e) { toast('이 브라우저에 저장하지 못했어요'); }
   };
   Store.saveMeeting = async m => {
@@ -703,6 +712,12 @@ function initLocal(){
     persist(); render(true);
   };
   Store.deleteWish = async id => { S.wishes = S.wishes.filter(x => x.id !== id); persist(); render(true); };
+  Store.savePersonal = async p => {
+    const i = S.personal.findIndex(x => x.id === p.id);
+    if (i >= 0) S.personal[i] = p; else S.personal.push(p);
+    persist(); render(true);
+  };
+  Store.deletePersonal = async id => { S.personal = S.personal.filter(x => x.id !== id); delete S.photos[id]; try { persistPhotos(); } catch (e) {} persist(); render(true); };
   Store.saveSeason = async months => { S.season = months; persist(); render(true); };
   Store.resetSeason = async () => { S.season = null; persist(); render(true); };
   Store.saveDex = async (key, img) => { S.dexImgs[key] = img; persist(); render(true); };
@@ -799,12 +814,16 @@ function render(keep){
   const mems = memberList();
   let body;
   if (S.detail) body = viewDetail();
+  else if (S.personalEntryId && S.personalOrigin !== 'subtab') body = viewPersonalDetail();
   else if (S.store) body = viewStore();
   else if (S.memberView) body = viewMemberReviews();
   else if (S.tab === 'rank') body = viewRank();
   else if (S.tab === 'map') body = viewMap();
   else if (S.tab === 'dex') body = S.seasonView ? viewSeason() : viewDex();
   else if (S.tab === 'members') body = viewMembers();
+  else if (S.personalEntryId) body = viewPersonalDetail();
+  else if (S.personalMemberId) body = viewPersonalMember();
+  else if (S.logSub === 'personal') body = viewPersonalList();
   else body = viewLog();
   const stack = mems.slice(0, 6).map(m => avatar(m)).join('');
   const tabs = [['log', '기록'], ['rank', '순위'], ['map', '지도'], ['dex', '도감'], ['members', '멤버']].map(t =>
@@ -852,12 +871,16 @@ function rowHtml(m, st, upcoming){
     '<span class="sc">' + right + '</span>' + (upcoming ? '' : '<span class="chips">' + chips + '</span>') + '</button>';
 }
 
+function logSubNav(){
+  const p = (s, l) => '<button class="fchip" data-act="logSub" data-s="' + s + '" aria-pressed="' + (S.logSub === s) + '">' + l + '</button>';
+  return '<div class="fchips" style="margin:0 0 14px">' + p('meetings', '모임기록') + p('personal', '개인기록') + '</div>';
+}
 function viewLog(){
   const today = todayStr();
   const all = S.meetings.filter(m => m && m.date && m.restaurant).map(m => ({ m: m, st: meetingStats(m.id) }));
   const upcoming = all.filter(x => x.m.date >= today && x.st.rs.length === 0).sort((a, b) => a.m.date.localeCompare(b.m.date));
   const past = all.filter(x => upcoming.indexOf(x) < 0).sort((a, b) => byDateDesc(a.m, b.m));
-  let h = '';
+  let h = logSubNav();
   if (upcoming.length) {
     const m = upcoming[0].m, dd = daysUntil(m.date);
     h += '<button class="next" data-act="open" data-id="' + esc(m.id) + '"><span class="dd">' + (dd === 0 ? '오늘' : 'D-' + dd) + '</span>' +
@@ -943,24 +966,28 @@ function viewMemberReviews(){
   if (!mem) { S.memberView = null; return viewMembers(); }
   const byId = {};
   S.meetings.forEach(m => { if (m) byId[m.id] = m; });
-  const items = Object.keys(mem.d.entries || {}).filter(k => byId[k] && mem.d.entries[k] && mem.d.entries[k].overall)
-    .map(k => ({ m: byId[k], r: mem.d.entries[k] }))
-    .sort((a, b) => S.memberSort === 'date' ? byDateDesc(a.m, b.m) : ((b.r.overall - a.r.overall) || byDateDesc(a.m, b.m)));
+  const moimItems = Object.keys(mem.d.entries || {}).filter(k => byId[k] && mem.d.entries[k] && mem.d.entries[k].overall)
+    .map(k => ({ personal: false, id: k, restaurant: byId[k].restaurant, date: byId[k].date, tag: '모임', r: mem.d.entries[k] }));
+  const personalItems = S.personal.filter(p => p && p.memberId === mem.id && p.overall)
+    .map(p => ({ personal: true, id: p.id, restaurant: p.restaurant, date: p.date, tag: '개인', r: { overall: p.overall, neta: p.neta, shari: p.shari, value: p.value, best: p.best, comment: p.comment } }));
+  const items = moimItems.concat(personalItems)
+    .sort((a, b) => S.memberSort === 'date' ? (String(b.date).localeCompare(String(a.date))) : ((b.r.overall - a.r.overall) || String(b.date).localeCompare(String(a.date))));
   const col = k => mean(items.map(x => x.r[k]).filter(v => v > 0));
   const avg = mean(items.map(x => x.r.overall));
   let h = '<button class="back" data-act="memberBack">‹ 멤버로</button>';
   h += '<div class="mhead">' + avatar(mem, 'lg') + '<div><h2 class="d-name" style="font-size:27px">' + esc(mem.name) + (isMine(mem.id) ? ' (나)' : '') + '</h2><div class="d-meta" style="margin:0"><span>후기 ' + items.length + '개</span></div></div></div>';
   if (!items.length) return h + emptyBox('아직 남긴 후기가 없어요.');
-  h += '<section class="sum"><div class="sum-top"><span class="big">' + fmt(avg) + '</span><div>' + pieces(avg) + '<div class="sum-cnt">' + esc(mem.name) + '님이 준 종합 점수의 평균</div></div></div>' +
+  h += '<section class="sum"><div class="sum-top"><span class="big">' + fmt(avg) + '</span><div>' + pieces(avg) + '<div class="sum-cnt">' + esc(mem.name) + '님이 준 종합 점수의 평균 (개인 기록 포함)</div></div></div>' +
     catRows({ neta: col('neta'), shari: col('shari'), value: col('value') }) + '</section>';
   h += '<div class="fchips" style="margin:0 0 4px"><button class="fchip" data-act="memberSort" data-s="score" aria-pressed="' + (S.memberSort !== 'date') + '">평점 높은 순</button><button class="fchip" data-act="memberSort" data-s="date" aria-pressed="' + (S.memberSort === 'date') + '">최신순</button></div>';
   items.forEach(x => {
-    const m = x.m, r = x.r;
+    const r = x.r;
     const det = [['neta', '네타'], ['shari', '샤리'], ['value', '가성비']].filter(c => r[c[0]] > 0).map(c => '<span>' + c[1] + ' ' + r[c[0]] + '</span>').join('');
-    h += '<section class="rv"><div class="visit-h"><span class="no-pill">' + esc(nth(m.id)) + '</span><span class="visit-d">' + shortDate(m.date) + '</span>' +
-      '<span style="margin-left:auto;display:flex;gap:2px">' + (canEditReview(mem.id) ? '<button class="btn ghost" data-act="review" data-id="' + esc(m.id) + '" data-member="' + esc(mem.id) + '">수정</button>' : '') +
-      '<button class="btn ghost" data-act="open" data-id="' + esc(m.id) + '">사진·상세</button></span></div>' +
-      '<div class="rn">' + esc(m.restaurant) + '</div>' +
+    const editBtn = canEditReview(mem.id) ? (x.personal ? '<button class="btn ghost" data-act="editPersonal" data-id="' + esc(x.id) + '" data-member="' + esc(mem.id) + '">수정</button>' : '<button class="btn ghost" data-act="review" data-id="' + esc(x.id) + '" data-member="' + esc(mem.id) + '">수정</button>') : '';
+    const openBtn = x.personal ? '<button class="btn ghost" data-act="openPersonalDetail" data-id="' + esc(x.id) + '" data-member="' + esc(mem.id) + '" data-origin="member">사진·상세</button>' : '<button class="btn ghost" data-act="open" data-id="' + esc(x.id) + '">사진·상세</button>';
+    h += '<section class="rv"><div class="visit-h"><span class="no-pill">' + x.tag + '</span><span class="visit-d">' + shortDate(x.date) + '</span>' +
+      '<span style="margin-left:auto;display:flex;gap:2px">' + editBtn + openBtn + '</span></div>' +
+      '<div class="rn">' + esc(x.restaurant) + '</div>' +
       '<div class="rv-s"><b>' + r.overall + '</b>' + pieces(r.overall) + '</div>' +
       (det ? '<div class="rv-d">' + det + '</div>' : '') +
       (r.best ? '<div class="rv-best"><b>오늘의 한 점</b>&nbsp; ' + esc(r.best) + '</div>' : '') +
@@ -1190,7 +1217,7 @@ function coverFromData(src){
 }
 function openLightbox(src, ctx){
   const lb = $('#lightbox');
-  const setBtn = (ctx && S.canMeet) ? '<button type="button" class="lb-set" data-act="setCover" data-mid="' + esc(ctx.mid) + '" data-member="' + esc(ctx.member) + '" data-i="' + esc(ctx.i) + '">대표 사진으로 지정</button>' : '';
+  const setBtn = (ctx && S.canMeet && S.meetings.some(x => x.id === ctx.mid)) ? '<button type="button" class="lb-set" data-act="setCover" data-mid="' + esc(ctx.mid) + '" data-member="' + esc(ctx.member) + '" data-i="' + esc(ctx.i) + '">대표 사진으로 지정</button>' : '';
   lb.innerHTML = '<div class="lb" data-act="lbClose"><img src="' + src + '" alt="사진"><button type="button" data-act="lbClose" aria-label="닫기">×</button>' + setBtn + '</div>';
 }
 function closeLightbox(){ $('#lightbox').innerHTML = ''; }
@@ -1722,6 +1749,182 @@ function openPlaceInfo(id){
     });
 }
 
+
+/* ---------- 개인 기록 ---------- */
+function personalStats(memberId){
+  const list = S.personal.filter(x => x && x.memberId === memberId && x.overall);
+  return { n: S.personal.filter(x => x && x.memberId === memberId).length, avg: list.length ? mean(list.map(x => x.overall)) : null };
+}
+function viewPersonalList(){
+  let h = logSubNav();
+  const mems = memberList();
+  h += '<div class="sec"><h2>개인 기록</h2></div><p class="hint" style="margin:0 0 10px">멤버를 누르면 모임이 아니라 각자 다녀온 곳의 후기를 볼 수 있어요.</p>';
+  if (!mems.length) return h + emptyBox('아직 합류한 멤버가 없어요.');
+  mems.forEach(mem => {
+    const st = personalStats(mem.id);
+    h += '<button class="mem" data-act="openPersonalMember" data-id="' + esc(mem.id) + '"><span class="grow">' + avatar(mem, 'lg') +
+      '<span class="nm">' + esc(mem.name) + (isMine(mem.id) ? ' (나)' : '') + '<span class="attn">개인 기록 ' + st.n + '개</span></span></span>' +
+      (st.n ? '<span class="sc"><span class="n">' + fmt(st.avg) + '</span>' + pieces(st.avg) + '</span>' : '') + '</button>';
+  });
+  return h;
+}
+function viewPersonalMember(){
+  const mem = memberList().find(x => x.id === S.personalMemberId);
+  if (!mem) { S.personalMemberId = null; return viewPersonalList(); }
+  const list = S.personal.filter(x => x && x.memberId === mem.id).sort((a, b) => String(b.date).localeCompare(String(a.date)) || (b.createdAt || 0) - (a.createdAt || 0));
+  let h = '<button class="back" data-act="personalMemberBack">‹ 개인기록으로</button>';
+  h += '<div class="mhead">' + avatar(mem, 'lg') + '<div><h2 class="d-name" style="font-size:24px">' + esc(mem.name) + (isMine(mem.id) ? ' (나)' : '') + '</h2><div class="d-meta" style="margin:0"><span>개인 기록 ' + list.length + '개</span></div></div></div>';
+  if (canEditReview(mem.id)) h += '<button class="btn out" style="margin-top:12px" data-act="addPersonal" data-member="' + esc(mem.id) + '">개인 기록 추가</button>';
+  if (!list.length) return h + emptyBox('아직 개인 기록이 없어요.');
+  list.forEach(p => {
+    const photos = (S.photos[p.id] && S.photos[p.id][mem.id]) || [];
+    const cv = photos[0] ? '<span class="cv"><img src="' + photos[0] + '" alt="" loading="lazy"></span>' : '';
+    const d = pd(p.date);
+    h += '<button class="row" data-act="openPersonalDetail" data-id="' + esc(p.id) + '" data-member="' + esc(mem.id) + '" data-origin="subtab" style="margin-top:12px">' + cv +
+      '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span></span>' +
+      '<span><span class="rn">' + esc(p.restaurant) + '</span>' + (p.area ? '<span class="ra">' + esc(p.area) + '</span>' : '') + '</span>' +
+      '<span class="sc">' + (p.overall ? '<span class="n">' + fmt(p.overall) + '</span>' + pieces(p.overall) : '') + '</span></button>';
+  });
+  return h;
+}
+function viewPersonalDetail(){
+  const p = S.personal.find(x => x.id === S.personalEntryId);
+  if (!p) { S.personalEntryId = null; S.personalOrigin = null; return S.personalMemberId ? viewPersonalMember() : viewPersonalList(); }
+  const mem = memberList().find(x => x.id === p.memberId);
+  const backLabel = S.personalOrigin === 'member' ? '후기 목록으로' : S.personalOrigin === 'dex' ? '도감으로' : (mem ? esc(mem.name) + '님의 기록으로' : '개인기록으로');
+  let h = '<button class="back" data-act="personalDetailBack">‹ ' + backLabel + '</button>';
+  h += '<p class="d-date">' + (mem ? esc(mem.name) + '님의 개인 기록 · ' : '') + longDate(p.date) + '</p><h2 class="d-name">' + esc(p.restaurant) + '</h2>';
+  const meta = [];
+  if (p.area) meta.push('<span>' + esc(p.area) + '</span>');
+  if (p.price) meta.push('<span>1인 ' + won(p.price) + '</span>');
+  if (meta.length) h += '<div class="d-meta">' + meta.join('') + '</div>';
+  h += placeLinksHtml(p, safeUrl(p.instaUrl) ? [['인스타그램', safeUrl(p.instaUrl)]] : []);
+  if (canEditReview(p.memberId)) h += '<p style="margin:10px 0 0"><button class="btn ghost" style="padding-left:0" data-act="editPersonal" data-id="' + esc(p.id) + '" data-member="' + esc(p.memberId) + '">기록 수정</button></p>';
+  if (p.overall) {
+    h += '<section class="sum"><div class="sum-top"><span class="big">' + fmt(p.overall) + '</span><div>' + pieces(p.overall) + '</div></div>' +
+      catRows({ neta: p.neta || null, shari: p.shari || null, value: p.value || null }) + '</section>';
+    if (p.best) h += '<div class="rv-best"><b>오늘의 한 점</b>&nbsp; ' + esc(p.best) + '</div>';
+    if (p.comment) h += '<p>' + esc(p.comment) + '</p>';
+  }
+  const photos = mem ? ((S.photos[p.id] || {})[mem.id] || []) : [];
+  if (photos.length) h += '<div class="phs" style="margin-top:12px">' + photos.map((src, i) => '<button class="ph" data-act="zoom" data-mid="' + esc(p.id) + '" data-member="' + esc(p.memberId) + '" data-i="' + i + '" aria-label="사진 크게 보기"><img src="' + src + '" alt="" loading="lazy"></button>').join('') + '</div>';
+  else if (!p.overall) h += '<p class="hint">아직 점수와 사진이 없어요.</p>';
+  return h;
+}
+function openPersonalSheet(memberId, id){
+  const ex = id ? S.personal.find(x => x.id === id) : null;
+  const owner = ex ? ex.memberId : memberId;
+  if (!owner) return;
+  const v = ex || { restaurant: '', date: todayStr(), area: '', price: '', mapUrl: '', instaUrl: '', lat: null, lng: null, placeUrl: '', overall: 0, neta: 0, shari: 0, value: 0, best: '', comment: '' };
+  let pick = hasPos(v) ? { lat: Number(v.lat), lng: Number(v.lng), placeUrl: v.placeUrl || '' } : null;
+  const F = { overall: v.overall || 0, neta: v.neta || 0, shari: v.shari || 0, value: v.value || 0 };
+  const origP = ex ? ((S.photos[ex.id] || {})[owner] || []).slice() : [];
+  const P = origP.slice();
+  const detailRow = (g, label, hint) => '<div class="drow"><span>' + label + '<small>' + hint + '</small></span><div class="rate-wrap"><div class="rate" role="radiogroup" aria-label="' + label + '" data-g="' + g + '">' + rateGroup(g, F[g]) + '</div><span class="rout" data-out="' + g + '">' + (F[g] || '') + '</span></div></div>';
+  openSheet(ex ? '개인 기록 수정' : '개인 기록 추가',
+    '<h3>' + (ex ? '개인 기록 수정' : '개인 기록 추가') + '</h3>' +
+    searchBlock() +
+    '<label for="f-name">가게 이름</label><input id="f-name" maxlength="60" value="' + esc(v.restaurant) + '" placeholder="예: 스시 OO">' +
+    '<div class="row2"><div><label for="f-date">날짜</label><input id="f-date" type="date" value="' + esc(v.date) + '"></div>' +
+    '<div><label for="f-price">1인 가격(원)</label><input id="f-price" type="number" inputmode="numeric" min="0" step="1000" value="' + esc(v.price || '') + '" placeholder="선택"></div></div>' +
+    '<label for="f-area">위치</label><input id="f-area" maxlength="40" value="' + esc(v.area) + '" placeholder="예: 강남역, 성수동">' +
+    '<label for="f-map">지도 링크</label><input id="f-map" type="text" inputmode="url" autocapitalize="off" value="' + esc(v.mapUrl || '') + '" placeholder="네이버 지도 공유 링크를 붙여넣기">' +
+    '<label for="f-ig">인스타그램</label><input id="f-ig" type="text" autocapitalize="off" value="' + esc(instaShown(v.instaUrl)) + '" placeholder="@아이디 또는 링크">' +
+    '<div class="lab" style="margin-top:18px">종합 점수 <span id="ov-n" style="font-family:var(--sans);font-size:14px;color:var(--ink2)"></span></div>' +
+    '<div class="rate big" role="radiogroup" aria-label="종합 점수" data-g="overall">' + rateGroup('overall', F.overall) + '</div>' +
+    '<p class="hint" style="margin-top:4px">초밥의 왼쪽 절반을 누르면 0.5점, 오른쪽 절반을 누르면 1점 단위예요.</p>' +
+    '<div class="lab" style="margin-top:18px">세부 점수 <span style="font-family:var(--sans);font-size:14px;color:var(--ink2)">(다시 누르면 취소돼요)</span></div>' +
+    detailRow('neta', '네타', '재료') + detailRow('shari', '샤리', '밥') + detailRow('value', '가성비', '') +
+    '<div class="lab">사진 <span style="font-family:var(--sans);font-size:14px;color:var(--ink2)">(최대 3장)</span></div><div class="pgrid" id="pgrid"></div><input type="file" id="f-file" accept="image/*" multiple hidden><div class="pstat" id="pstat" aria-live="polite"></div>' +
+    '<label for="f-best">오늘의 한 점</label><input id="f-best" maxlength="30" value="' + esc(v.best || '') + '" placeholder="예: 중뱃살, 성게">' +
+    '<label for="f-cmt">한줄평</label><textarea id="f-cmt" maxlength="300" placeholder="맛, 분위기, 다음에 또 갈지 등">' + esc(v.comment || '') + '</textarea>' +
+    '<div class="err" id="err"></div>' +
+    '<div class="actions">' + (ex ? '<button class="btn warn" id="del">삭제</button>' : '<button class="btn" data-act="sheetClose">취소</button>') + '<button class="btn pri" id="save">저장</button></div>',
+    sheet => {
+      const err = sheet.querySelector('#err');
+      bindSearch(sheet, r => {
+        sheet.querySelector('#f-name').value = r.name;
+        sheet.querySelector('#f-area').value = shortArea(r.address);
+        const mp = sheet.querySelector('#f-map');
+        if (!mp.value.trim() && r.placeUrl) mp.value = r.placeUrl;
+        pick = { lat: r.lat, lng: r.lng, placeUrl: r.placeUrl };
+        const hintEl = sheet.querySelector('#f-pick');
+        if (hintEl) hintEl.textContent = '"' + r.name + '" 위치가 저장돼요.';
+      });
+      const ovn = sheet.querySelector('#ov-n');
+      const showOv = () => { ovn.textContent = F.overall ? F.overall + '점' : ''; };
+      showOv();
+      const pgrid = sheet.querySelector('#pgrid'), pstat = sheet.querySelector('#pstat'), fileIn = sheet.querySelector('#f-file');
+      let working = false;
+      const drawP = () => {
+        pgrid.innerHTML = P.map((src, i) => '<div class="pth"><img src="' + src + '" alt="사진 ' + (i + 1) + '"><button type="button" data-pdel="' + i + '" aria-label="사진 ' + (i + 1) + ' 삭제">×</button></div>').join('') +
+          (P.length < 3 ? '<button type="button" class="padd" data-padd="1">+ 사진 추가</button>' : '');
+      };
+      drawP();
+      fileIn.addEventListener('change', async () => {
+        const files = Array.from(fileIn.files || []).slice(0, 3 - P.length);
+        fileIn.value = '';
+        if (!files.length) return;
+        working = true; pstat.textContent = '사진을 처리하는 중…'; err.textContent = '';
+        let failed = 0;
+        for (const f of files) { try { P.push(await compressImage(f)); drawP(); } catch (e) { failed++; } }
+        working = false;
+        pstat.textContent = failed ? '사진 ' + failed + '장을 불러오지 못했어요.' : '';
+      });
+      sheet.addEventListener('click', e => {
+        if (e.target.closest('[data-padd]')) { fileIn.click(); return; }
+        const pdel = e.target.closest('[data-pdel]');
+        if (pdel) { P.splice(Number(pdel.dataset.pdel), 1); drawP(); pstat.textContent = ''; return; }
+        const r = e.target.closest('[data-rate]');
+        if (r) {
+          const g = r.dataset.rate, val = Number(r.dataset.v);
+          F[g] = (F[g] === val && g !== 'overall') ? 0 : val;
+          sheet.querySelector('[data-g="' + g + '"]').innerHTML = rateGroup(g, F[g]);
+          if (g === 'overall') showOv();
+          const outEl = sheet.querySelector('[data-out="' + g + '"]');
+          if (outEl) outEl.textContent = F[g] || '';
+          err.textContent = '';
+        }
+      });
+      sheet.querySelector('#save').addEventListener('click', ev => {
+        const name = sheet.querySelector('#f-name').value.trim();
+        const date = sheet.querySelector('#f-date').value;
+        if (working) { err.textContent = '사진을 처리하는 중이에요. 잠시만 기다려 주세요.'; return; }
+        if (!name) { err.textContent = '가게 이름을 입력해 주세요.'; return; }
+        if (!date) { err.textContent = '날짜를 골라 주세요.'; return; }
+        const mapUrl = normUrl(sheet.querySelector('#f-map').value);
+        const instaUrl = normInsta(sheet.querySelector('#f-ig').value);
+        if (mapUrl === null) { err.textContent = '지도 링크 형식을 확인해 주세요.'; return; }
+        if (instaUrl === null) { err.textContent = '인스타그램 아이디나 링크를 확인해 주세요.'; return; }
+        const price = parseInt(sheet.querySelector('#f-price').value, 10);
+        const p = {
+          id: ex ? ex.id : 'p_' + genId(), kind: 'personal', memberId: owner,
+          restaurant: name, date: date, area: sheet.querySelector('#f-area').value.trim(),
+          price: isNaN(price) || price <= 0 ? null : price,
+          mapUrl: mapUrl, instaUrl: instaUrl,
+          lat: pick ? pick.lat : null, lng: pick ? pick.lng : null, placeUrl: pick ? pick.placeUrl : '',
+          overall: F.overall, neta: F.neta, shari: F.shari, value: F.value,
+          best: sheet.querySelector('#f-best').value.trim(), comment: sheet.querySelector('#f-cmt').value.trim(),
+          createdAt: ex ? (ex.createdAt || Date.now()) : Date.now(), updatedAt: Date.now()
+        };
+        busy(ev.currentTarget, async () => {
+          await Store.savePersonal(p);
+          if (JSON.stringify(P) !== JSON.stringify(origP)) await Store.savePhotos(owner, p.id, P);
+          closeSheet(); toast('저장했어요');
+        }, err);
+      });
+      const del = sheet.querySelector('#del');
+      if (del) del.addEventListener('click', ev => {
+        if (!del.dataset.sure) { del.dataset.sure = '1'; del.textContent = '정말 삭제'; return; }
+        busy(ev.currentTarget, async () => {
+          await Store.deletePersonal(ex.id);
+          if (origP.length) await Store.savePhotos(owner, ex.id, []);
+          S.personalEntryId = null; S.personalOrigin = null; closeSheet(); render(false); toast('삭제했어요');
+        }, err);
+      });
+    });
+}
+
 /* ---------- 초밥 도감 ---------- */
 const NETA_ALIAS = {
   '오도로': '대뱃살', '대토로': '대뱃살', '오오토로': '대뱃살', '대뱃살': '대뱃살',
@@ -1771,6 +1974,21 @@ function calcDex(){
         e.spells[c.name] = (e.spells[c.name] || 0) + 1;
         e.picks.push({ mid: mid, mem: mem, date: m.date || '', m: m });
       });
+    });
+  });
+  const memsAll = memberList();
+  S.personal.forEach(pr => {
+    if (!pr || !pr.best) return;
+    const mem = memsAll.find(x => x.id === pr.memberId);
+    if (!mem) return;
+    const seen = {};
+    String(pr.best).split(/[,，、\/·+&\n]|\s+(?:및|그리고|와|과)\s+/).forEach(tok => {
+      const c = canonNeta(tok);
+      if (!c || seen[c.key]) return;
+      seen[c.key] = 1;
+      const e = map[c.key] || (map[c.key] = { key: c.key, spells: {}, picks: [] });
+      e.spells[c.name] = (e.spells[c.name] || 0) + 1;
+      e.picks.push({ mid: pr.id, mem: mem, date: pr.date || '', m: { restaurant: pr.restaurant }, personal: true });
     });
   });
   const allDates = {};
@@ -1831,8 +2049,8 @@ function openDexSheet(key){
     '<div class="dexhero">' + (hasImg ? '<img class="dimg" src="' + S.dexImgs[e.key] + '" alt="' + esc(e.name) + '">' : mascot(130, e.color)) + '</div><h3 style="text-align:center;margin-top:8px">' + esc(e.name) + '</h3>' +
     '<p class="hint" style="text-align:center;margin-bottom:6px">' + e.count + '번 최고의 한 점으로 꼽혔어요</p>' +
     (S.canMeet ? '<div class="dexbtns"><button type="button" class="btn" data-dexadd="1">' + (hasImg ? '그림 바꾸기' : '그림 넣기') + '</button>' + (hasImg ? '<button type="button" class="btn ghost" data-dexdel="1">그림 지우기</button>' : '') + '</div><input type="file" id="f-dexfile" accept="image/*" hidden><p class="dexstat" id="dexstat" aria-live="polite">' + (hasImg ? '' : '가로로 긴 그림을 가운데 기준으로 잘라서 보여줘요.') + '</p>' : '') +
-    picks.map(p => '<button class="pk" data-act="pickOpen" data-id="' + esc(p.mid) + '">' + avatar(p.mem) +
-      '<span><span class="pk-n">' + esc(p.mem.name) + '</span><span class="pk-m">' + esc(nth(p.mid)) + ' ' + esc(p.m.restaurant) + ', ' + shortDate(p.date) + '</span></span></button>').join('') +
+    picks.map(p => '<button class="pk" data-act="pickOpen" data-id="' + esc(p.mid) + '"' + (p.personal ? ' data-personal="1" data-member="' + esc(p.mem.id) + '"' : '') + '>' + avatar(p.mem) +
+      '<span><span class="pk-n">' + esc(p.mem.name) + '</span><span class="pk-m">' + (p.personal ? '개인' : '모임') + ' ' + esc(p.m.restaurant) + ', ' + shortDate(p.date) + '</span></span></button>').join('') +
     '<div class="actions" style="margin-top:14px"><button class="btn" data-act="sheetClose">닫기</button></div>',
     sheet => {
       const file = sheet.querySelector('#f-dexfile'), stat = sheet.querySelector('#dexstat');
@@ -1968,7 +2186,13 @@ document.addEventListener('click', e => {
     Store.resetSeason().then(() => toast('기본값으로 되돌렸어요')).catch(e => { console.error(e); toast('되돌리지 못했어요'); render(true); });
     return;
   }
-  if (a === 'pickOpen') { closeSheet(); S.detail = t.dataset.id; render(false); return; }
+  if (a === 'pickOpen') {
+    closeSheet();
+    if (t.dataset.personal === '1') { S.personalEntryId = t.dataset.id; S.personalOrigin = 'dex'; S.personalMemberId = null; }
+    else S.detail = t.dataset.id;
+    render(false);
+    return;
+  }
   if (a === 'installApp') {
     if (deferredInstall) { const dp = deferredInstall; deferredInstall = null; dp.prompt(); Promise.resolve(dp.userChoice).catch(() => {}).then(() => render(true)); }
     return;
@@ -2009,7 +2233,14 @@ document.addEventListener('click', e => {
     if (t.classList.contains('backdrop') && e.target !== t) return;
     closeSheet(); return;
   }
-  if (a === 'tab') { S.tab = t.dataset.tab; S.detail = null; S.store = null; S.memberView = null; S.seasonView = false; S.seasonEdit = false; S.seasonAdd = -1; render(false); }
+  if (a === 'tab') { S.tab = t.dataset.tab; S.detail = null; S.store = null; S.memberView = null; S.seasonView = false; S.seasonEdit = false; S.seasonAdd = -1; S.logSub = 'meetings'; S.personalMemberId = null; S.personalEntryId = null; S.personalOrigin = null; render(false); }
+  else if (a === 'logSub') { S.logSub = t.dataset.s; S.personalMemberId = null; S.personalEntryId = null; S.personalOrigin = null; render(true); }
+  else if (a === 'openPersonalMember') { S.personalMemberId = t.dataset.id; render(false); }
+  else if (a === 'personalMemberBack') { S.personalMemberId = null; render(false); }
+  else if (a === 'openPersonalDetail') { S.personalEntryId = t.dataset.id; S.personalMemberId = t.dataset.member || S.personalMemberId; S.personalOrigin = t.dataset.origin || 'subtab'; render(false); }
+  else if (a === 'personalDetailBack') { S.personalEntryId = null; S.personalOrigin = null; render(false); }
+  else if (a === 'addPersonal') openPersonalSheet(t.dataset.member, null);
+  else if (a === 'editPersonal') openPersonalSheet(t.dataset.member, t.dataset.id);
   else if (a === 'openMember') { S.memberView = t.dataset.id; render(false); }
   else if (a === 'memberBack') { S.memberView = null; render(false); }
   else if (a === 'memberSort') { S.memberSort = t.dataset.s; render(true); }
