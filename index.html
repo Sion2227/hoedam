@@ -395,6 +395,10 @@ h2{font-size:18px}
 .sheet label,.lab{font:400 14px/1.4 var(--sans);color:var(--ink2)}
 .sheet input,.sheet textarea{border-radius:12px}
 .gate h1{font-size:32px}
+.row .chips{grid-column:2/-1;flex-wrap:nowrap;margin-top:0;overflow:hidden}
+.attn{margin-left:8px;font:400 13.5px var(--sans);color:var(--ink2);white-space:nowrap}
+.mem .nm{display:flex;flex-wrap:wrap;align-items:baseline}
+.mem .sc .pcs{--pw:13px}
 .mem .btn.ghost{min-height:32px;padding:4px 6px;font-size:13px}
 .dcard,.pod,.rkrow,.mem,.pl,.rv,.sum,.favs,.dexsum,.qbox,.inst{border-radius:16px}
 </style>
@@ -844,8 +848,8 @@ function rowHtml(m, st, upcoming){
   return '<button class="row" data-act="open" data-id="' + esc(m.id) + '">' + cvHtml +
     '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span></span>' +
     '<span><span class="no">' + nth(m.id) + '</span><span class="rn">' + esc(m.restaurant) + '</span>' + (m.area ? '<span class="ra">' + esc(m.area) + '</span>' : '') +
-    (upcoming ? '' : '<span class="chips">' + chips + '</span>') + '</span>' +
-    '<span class="sc">' + right + '</span></button>';
+    '</span>' +
+    '<span class="sc">' + right + '</span>' + (upcoming ? '' : '<span class="chips">' + chips + '</span>') + '</button>';
 }
 
 function viewLog(){
@@ -1045,14 +1049,9 @@ function viewMembers(){
   if (S.mode === 'db' && mems.length < 4) h += '<p class="hint">4명이 모두 합류하면 좋아요. 링크를 공유하고 각자 이름을 정해 달라고 해 보세요.</p>';
   if (!mems.length) h += emptyBox(S.mode === 'local' ? '멤버를 추가해 주세요.' : '아직 합류한 멤버가 없어요.');
   per.forEach(p => {
-    let tend = '참석 ' + came[p.mem.id] + '회, ' + (p.n ? '후기 ' + p.n + '개' : '후기 없음');
-    if (p.n >= 2 && gAvg != null && everything.length > p.n) {
-      const diff = p.avg - gAvg;
-      tend += diff > 0.3 ? ', 후한 편' : diff < -0.3 ? ', 짠 편' : ', 무난한 편';
-    }
-    h += '<div class="mem"><button class="memmain" data-act="openMember" data-id="' + esc(p.mem.id) + '">' + avatar(p.mem, 'lg') + '<span class="grow"><span class="nm" style="display:block">' + esc(p.mem.name) + (isMine(p.mem.id) ? ' (나)' : '') + '</span><span class="st" style="display:block">' + tend + '</span></span>' +
+    h += '<div class="mem"><button class="memmain" data-act="openMember" data-id="' + esc(p.mem.id) + '">' + avatar(p.mem, 'lg') + '<span class="grow"><span class="nm">' + esc(p.mem.name) + (isMine(p.mem.id) ? ' (나)' : '') + '<span class="attn">참석 ' + came[p.mem.id] + '회</span></span></span>' +
       (p.n ? '<span class="sc"><span class="n">' + fmt(p.avg) + '</span>' + pieces(p.avg) + '</span>' : '') + '</button>' +
-      (S.mode === 'local' || isMine(p.mem.id) ? '<button class="btn ghost" data-act="rename" data-id="' + esc(p.mem.id) + '">이름 수정</button>' : '') + '</div>';
+      (S.mode === 'local' || isMine(p.mem.id) ? '<button class="btn ghost" data-act="rename" data-id="' + esc(p.mem.id) + '" aria-label="이름 수정">수정</button>' : '') + '</div>';
   });
   h += installCard();
   if (S.mode === 'db') h += '<div class="acct"><p class="hint">' + esc((S.user && S.user.email) || '') + ' 계정으로 로그인 중</p><button class="btn" data-act="gLogout" style="margin-top:10px">로그아웃</button></div>';
