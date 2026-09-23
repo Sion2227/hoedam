@@ -1638,7 +1638,7 @@ function placeLinkList(o){
   const isNaver = host.indexOf('naver') >= 0, isKakao = host.indexOf('kakao') >= 0;
   if (link && isNaver) out.push(['네이버 지도', link]);
   else out.push(['네이버 지도에서 찾기', 'https://map.naver.com/p/search/' + encodeURIComponent(nm)]);
-  if (safeUrl(o.placeUrl)) out.push(['카카오맵 영업시간 보기', safeUrl(o.placeUrl)]);
+  if (safeUrl(o.placeUrl)) out.push(['카카오맵', safeUrl(o.placeUrl)]);
   else if (hasPos(o)) out.push(['카카오맵', 'https://map.kakao.com/link/map/' + encodeURIComponent(nm) + ',' + Number(o.lat) + ',' + Number(o.lng)]);
   else if (link && isKakao) out.push(['카카오맵', link]);
   if (link && !isNaver && !isKakao) out.push([(host.indexOf('google') >= 0 || host.indexOf('goo.gl') >= 0) ? '구글 지도' : '링크', link]);
@@ -1775,20 +1775,30 @@ function personalStats(memberId){
   return { n: S.personal.filter(x => x && x.memberId === memberId).length, avg: list.length ? mean(list.map(x => x.overall)) : null };
 }
 function viewPersonalList(){
-  const mems = memberList();
   const canAdd = S.mode === 'local' ? S.canMeet : S.canReview;
   let h = '<div class="sec">' + logSubNav() + (canAdd ? '<button class="btn out" data-act="addPersonalHome">기록 추가</button>' : '') + '</div>';
   h += '<p class="hint" style="margin:0 0 10px">모임이 아니라 각자 다녀온 곳의 후기예요. 누르면 자세히 볼 수 있어요.</p>';
-  if (!mems.length) return h + emptyBox('아직 합류한 멤버가 없어요.');
-  const rows = mems.map(mem => Object.assign({ mem: mem }, personalStats(mem.id)))
-    .sort((a, b) => (a.n === 0 && b.n === 0) ? 0 : a.n === 0 ? 1 : b.n === 0 ? -1 : (b.avg - a.avg) || (b.n - a.n));
-  h += '<ol class="rank">';
-  rows.forEach((row, i) => {
-    h += '<li><button class="rkrow" data-act="openPersonalMember" data-id="' + esc(row.mem.id) + '"><span class="rk">' + (i + 1) + '</span><span>' +
-      '<span class="rn">' + esc(row.mem.name) + (isMine(row.mem.id) ? ' (나)' : '') + '</span><span class="ra">' + (row.n ? '다녀온 곳 ' + row.n + '곳' : '아직 없어요') + '</span></span>' +
-      '<span class="sc">' + (row.n ? '<span class="n">' + fmt(row.avg) + '</span>' + pieces(row.avg) : '') + '</span></button></li>';
+  const mems = memberList();
+  const list = S.personal.filter(x => x && x.restaurant && x.date)
+    .map(p => ({ p: p, mem: mems.find(m => m.id === p.memberId) }))
+    .filter(x => x.mem)
+    .sort((a, b) => String(b.p.date).localeCompare(String(a.p.date)) || (b.p.createdAt || 0) - (a.p.createdAt || 0));
+  if (!list.length) return h + emptyBox('아직 개인 기록이 없어요.<br>"기록 추가"로 혼자 다녀온 곳을 남겨 보세요.');
+  let lastYear = null;
+  list.forEach(x => {
+    const p = x.p, mem = x.mem;
+    const y = pd(p.date).getFullYear();
+    if (y !== lastYear) { h += '<div class="yr">' + y + '년</div>'; lastYear = y; }
+    const photos = (S.photos[p.id] && S.photos[p.id][mem.id]) || [];
+    const cv = photos[0] ? '<span class="cv"><img src="' + photos[0] + '" alt="" loading="lazy"></span>' : '';
+    const d = pd(p.date);
+    h += '<button class="row" data-act="openPersonalDetail" data-id="' + esc(p.id) + '" data-member="' + esc(mem.id) + '" data-origin="list">' + cv +
+      '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span></span>' +
+      '<span><span class="rn">' + esc(p.restaurant) + '</span>' + (p.area ? '<span class="ra">' + esc(p.area) + '</span>' : '') +
+      '<span class="chips"><span class="chip">' + avatar(mem) + esc(mem.name) + (isMine(mem.id) ? ' (나)' : '') + '</span></span></span>' +
+      '<span class="sc">' + (p.overall ? '<span class="n">' + fmt(p.overall) + '</span>' + pieces(p.overall) : '') + '</span></button>';
   });
-  return h + '</ol>';
+  return h;
 }
 function viewPersonalMember(){
   const mem = memberList().find(x => x.id === S.personalMemberId);
@@ -1813,7 +1823,7 @@ function viewPersonalDetail(){
   const p = S.personal.find(x => x.id === S.personalEntryId);
   if (!p) { S.personalEntryId = null; S.personalOrigin = null; return S.personalMemberId ? viewPersonalMember() : viewPersonalList(); }
   const mem = memberList().find(x => x.id === p.memberId);
-  const backLabel = S.personalOrigin === 'member' ? '후기 목록으로' : S.personalOrigin === 'dex' ? '도감으로' : S.personalOrigin === 'map' ? '지도로' : (mem ? esc(mem.name) + '님의 기록으로' : '개인기록으로');
+  const backLabel = S.personalOrigin === 'member' ? '후기 목록으로' : S.personalOrigin === 'dex' ? '도감으로' : S.personalOrigin === 'map' ? '지도로' : S.personalOrigin === 'list' ? '개인기록으로' : (mem ? esc(mem.name) + '님의 기록으로' : '개인기록으로');
   let h = '<button class="back" data-act="personalDetailBack">‹ ' + backLabel + '</button>';
   h += '<p class="d-date">' + (mem ? esc(mem.name) + '님의 개인 기록 · ' : '') + longDate(p.date) + '</p><h2 class="d-name">' + esc(p.restaurant) + '</h2>';
   const meta = [];
@@ -2276,7 +2286,13 @@ document.addEventListener('click', e => {
   else if (a === 'logSub') { S.logSub = t.dataset.s; S.personalMemberId = null; S.personalEntryId = null; S.personalOrigin = null; render(true); }
   else if (a === 'openPersonalMember') { S.personalMemberId = t.dataset.id; render(false); }
   else if (a === 'personalMemberBack') { S.personalMemberId = null; render(false); }
-  else if (a === 'openPersonalDetail') { S.personalEntryId = t.dataset.id; S.personalMemberId = t.dataset.member || S.personalMemberId; S.personalOrigin = t.dataset.origin || 'subtab'; render(false); }
+  else if (a === 'openPersonalDetail') {
+    const origin = t.dataset.origin || 'subtab';
+    S.personalEntryId = t.dataset.id;
+    S.personalOrigin = origin;
+    S.personalMemberId = origin === 'subtab' ? (t.dataset.member || S.personalMemberId) : null;
+    render(false);
+  }
   else if (a === 'personalDetailBack') { S.personalEntryId = null; S.personalOrigin = null; render(false); }
   else if (a === 'addPersonal') openPersonalSheet(t.dataset.member, null);
   else if (a === 'addPersonalHome') openPersonalSheet(null, null);
