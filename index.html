@@ -1652,7 +1652,7 @@ function viewMap(){
   h += '<input type="search" id="mapq" class="searchbox" placeholder="저장된 가게 찾기 (이름이나 동네)" value="' + esc(S.mapQuery) + '" autocomplete="off" enterkeyhint="search" aria-label="저장된 가게 찾기">';
   h += '<div class="mapbox"><div id="mapHost" class="maphost"></div></div>';
   h += '<div class="fchips">' + fc('all', '전체 ' + all.length) + fc('todo', '갈 곳 ' + nTodo) + fc('sun', '일요일 영업 ' + nSun) + (nUnk ? fc('unk', '일요일 미확인 ' + nUnk) : '') + fc('done', '간 곳 ' + nDone) + '</div>';
-  if (nSun && !q) h += '<p class="mapnote">노란 "일" 핀은 일요일에도 여는 갈 곳이에요.</p>';
+  if (nSun && !q) h += '<p class="mapnote">초록 핀은 갈 곳, 노란 핀은 일요일에도 여는 갈 곳이에요.</p>';
   h += '<div id="mapList">' + mapListHtml() + '</div>';
   return h;
 }
