@@ -427,6 +427,17 @@ const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2
 const clone = o => JSON.parse(JSON.stringify(o));
 const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
 const fmt = n => n == null ? '–' : n.toFixed(1);
+function scoreColor(v){
+  if (v == null) return '';
+  if (v >= 4.5) return '#E0294B';
+  if (v >= 3.5) return '#E07B39';
+  if (v >= 2.5) return '#C99A00';
+  return '#8A7A72';
+}
+function scStyle(v){
+  const c = scoreColor(v);
+  return c ? ' style="--accent:' + c + ';--neta:' + c + '"' : '';
+}
 const DOW = ['일','월','화','수','목','금','토'];
 const pad = n => String(n).padStart(2, '0');
 function todayStr(){ const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -870,7 +881,7 @@ function rowHtml(m, st, upcoming){
     '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span></span>' +
     '<span><span class="no">' + nth(m.id) + '</span><span class="rn">' + esc(m.restaurant) + '</span>' + (m.area ? '<span class="ra">' + esc(m.area) + '</span>' : '') +
     '</span>' +
-    '<span class="sc">' + right + '</span>' + (upcoming ? '' : '<span class="chips">' + chips + '</span>') + '</button>';
+    '<span class="sc"' + (upcoming ? '' : scStyle(st.overall)) + '>' + right + '</span>' + (upcoming ? '' : '<span class="chips">' + chips + '</span>') + '</button>';
 }
 
 function logSubNav(){
@@ -1817,7 +1828,7 @@ function viewPersonalList(){
       '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span></span>' +
       '<span><span class="rn">' + esc(p.restaurant) + '</span>' + (p.area ? '<span class="ra">' + esc(p.area) + '</span>' : '') +
       (note ? '<span class="rp-note">' + esc(note) + '</span>' : '') + '</span>' +
-      '<span class="sc">' + (p.overall ? '<span class="n">' + fmt(p.overall) + '</span>' + pieces(p.overall) : '') +
+      '<span class="sc"' + (p.overall ? scStyle(p.overall) : '') + '>' + (p.overall ? '<span class="n">' + fmt(p.overall) + '</span>' + pieces(p.overall) : '') +
       '<span class="who-mini">' + avatar(mem) + '<span>' + esc(mem.name) + (isMine(mem.id) ? ' (나)' : '') + '</span></span></span></button>';
   });
   return h;
