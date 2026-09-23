@@ -429,9 +429,8 @@ const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
 const fmt = n => n == null ? '–' : n.toFixed(1);
 function scoreColor(v){
   if (v == null) return '';
-  if (v >= 4.5) return '#E0294B';
-  if (v >= 3.5) return '#E07B39';
-  if (v >= 2.5) return '#C99A00';
+  if (v >= 4.4) return '#E0294B';
+  if (v >= 3.0) return '#2E8B4F';
   return '#8A7A72';
 }
 function scStyle(v){
