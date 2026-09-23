@@ -149,7 +149,7 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 .d-memo{margin:12px 0 0;padding:12px 14px;border-radius:20px;background:var(--surface);border:1px dashed var(--line);font-size:15px;white-space:pre-wrap}
 .sum{margin:18px 0 12px;padding:18px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
 .sum-top{display:flex;align-items:center;gap:16px}
-.big{font:400 54px/1 var(--display);color:var(--accent)}
+.big{font:400 54px/1 var(--display);color:var(--accent);white-space:nowrap;flex-shrink:0}
 .sum-top .pcs{--pw:26px}
 .sum-cnt{font-size:14px;color:var(--ink2);margin-top:2px}
 .drow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0}
@@ -873,14 +873,14 @@ function rowHtml(m, st, upcoming){
 
 function logSubNav(){
   const p = (s, l) => '<button class="fchip" data-act="logSub" data-s="' + s + '" aria-pressed="' + (S.logSub === s) + '">' + l + '</button>';
-  return '<div class="fchips" style="margin:0 0 14px">' + p('meetings', '모임기록') + p('personal', '개인기록') + '</div>';
+  return '<div class="fchips" style="margin:0">' + p('meetings', '모임기록') + p('personal', '개인기록') + '</div>';
 }
 function viewLog(){
   const today = todayStr();
   const all = S.meetings.filter(m => m && m.date && m.restaurant).map(m => ({ m: m, st: meetingStats(m.id) }));
   const upcoming = all.filter(x => x.m.date >= today && x.st.rs.length === 0).sort((a, b) => a.m.date.localeCompare(b.m.date));
   const past = all.filter(x => upcoming.indexOf(x) < 0).sort((a, b) => byDateDesc(a.m, b.m));
-  let h = logSubNav();
+  let h = '';
   if (upcoming.length) {
     const m = upcoming[0].m, dd = daysUntil(m.date);
     h += '<button class="next" data-act="open" data-id="' + esc(m.id) + '"><span class="dd">' + (dd === 0 ? '오늘' : 'D-' + dd) + '</span>' +
@@ -888,7 +888,7 @@ function viewLog(){
   } else {
     h += '<div class="next empty">' + mascot(60) + '<span class="nx"><span class="nx-n" style="font-size:19px">다음 모임이 아직 없어요</span><span class="nx-w">날짜와 가게가 정해지면 추가해 두세요.</span></span></div>';
   }
-  h += '<div class="sec"><h2>모임 기록</h2>' + (S.canMeet ? '<button class="btn out" data-act="addMeeting">모임 추가</button>' : '') + '</div>';
+  h += '<div class="sec">' + logSubNav() + (S.canMeet ? '<button class="btn out" data-act="addMeeting">모임 추가</button>' : '') + '</div>';
   const rows = upcoming.slice(1).map(x => ({ x: x, up: true })).concat(past.map(x => ({ x: x, up: false })));
   if (!rows.length) {
     h += emptyBox('아직 기록이 없어요.<br>첫 모임을 추가하고 점수를 남겨 보세요.');
@@ -1076,9 +1076,9 @@ function viewMembers(){
   if (S.mode === 'db' && mems.length < 4) h += '<p class="hint">4명이 모두 합류하면 좋아요. 링크를 공유하고 각자 이름을 정해 달라고 해 보세요.</p>';
   if (!mems.length) h += emptyBox(S.mode === 'local' ? '멤버를 추가해 주세요.' : '아직 합류한 멤버가 없어요.');
   per.forEach(p => {
-    h += '<div class="mem"><button class="memmain" data-act="openMember" data-id="' + esc(p.mem.id) + '">' + avatar(p.mem, 'lg') + '<span class="grow"><span class="nm">' + esc(p.mem.name) + (isMine(p.mem.id) ? ' (나)' : '') + '<span class="attn">참석 ' + came[p.mem.id] + '회</span></span></span>' +
-      (p.n ? '<span class="sc"><span class="n">' + fmt(p.avg) + '</span>' + pieces(p.avg) + '</span>' : '') + '</button>' +
-      (S.mode === 'local' || isMine(p.mem.id) ? '<button class="btn ghost" data-act="rename" data-id="' + esc(p.mem.id) + '" aria-label="이름 수정">수정</button>' : '') + '</div>';
+    h += '<div class="mem"><button class="memmain" data-act="openMember" data-id="' + esc(p.mem.id) + '">' + avatar(p.mem, 'lg') + '<span class="nm">' + esc(p.mem.name) + (isMine(p.mem.id) ? ' (나)' : '') + '<span class="attn">참석 ' + came[p.mem.id] + '회</span></span></button>' +
+      (S.mode === 'local' || isMine(p.mem.id) ? '<button class="btn ghost" data-act="rename" data-id="' + esc(p.mem.id) + '" aria-label="이름 수정">수정</button>' : '') +
+      (p.n ? '<span class="sc"><span class="n">' + fmt(p.avg) + '</span>' + pieces(p.avg) + '</span>' : '') + '</div>';
   });
   h += installCard();
   if (S.mode === 'db') h += '<div class="acct"><p class="hint">' + esc((S.user && S.user.email) || '') + ' 계정으로 로그인 중</p><button class="btn" data-act="gLogout" style="margin-top:10px">로그아웃</button></div>';
@@ -1563,21 +1563,34 @@ function openMapItem(kind, id){
   else openPlaceInfo(id);
 }
 
+function personalSearchMatches(qNorm){
+  return S.personal.filter(p => {
+    if (!p || !p.restaurant) return false;
+    const n = normName(p.restaurant);
+    return n.indexOf(qNorm) >= 0 || (n.length >= 2 && qNorm.indexOf(n) >= 0) || normName(p.address).indexOf(qNorm) >= 0;
+  });
+}
 function mapListHtml(){
   const q = S.mapQuery.trim();
   const shown = visibleItems().sort((a, b) => (a.kind === b.kind)
     ? (a.kind === 'todo' ? (b.created || 0) - (a.created || 0) : String(b.date).localeCompare(String(a.date)))
     : (a.kind === 'todo' ? -1 : 1));
+  const personalHits = q ? personalSearchMatches(normName(q)) : [];
   let h = '';
   if (q) {
-    const nT = shown.filter(x => x.kind === 'todo').length, nD = shown.length - nT;
-    if (!shown.length) {
+    const nT = shown.filter(x => x.kind === 'todo').length, nD = shown.length - nT, nP = personalHits.length;
+    if (!shown.length && !nP) {
       h += '<div class="qbox"><p>"' + esc(q) + '"은(는) 아직 저장되어 있지 않아요.</p>' + (S.canMeet ? '<button class="btn pri" data-act="addPlaceQ">갈 곳으로 추가</button>' : '') + '</div>';
       return h;
     }
     let msg;
-    if (shown.length === 1) msg = shown[0].kind === 'todo' ? '<b>갈 곳</b>에 저장되어 있어요.' : (shown[0].upcoming ? '<b>예정된 모임</b>으로 저장되어 있어요.' : '이미 <b>다녀온 곳</b>이에요.');
-    else msg = '검색 결과 ' + shown.length + '곳: 갈 곳 ' + nT + '곳, 간 곳 ' + nD + '곳';
+    if (shown.length === 1 && !nP) msg = shown[0].kind === 'todo' ? '<b>갈 곳</b>에 저장되어 있어요.' : (shown[0].upcoming ? '<b>예정된 모임</b>으로 저장되어 있어요.' : '이미 <b>다녀온 곳</b>이에요.');
+    else {
+      const parts = [];
+      if (shown.length) parts.push('갈 곳 ' + nT + '곳, 간 곳 ' + nD + '곳');
+      if (nP) parts.push('개인 기록 ' + nP + '개');
+      msg = '검색 결과: ' + parts.join(' · ');
+    }
     h += '<div class="qbox"><p>"' + esc(q) + '" — ' + msg + '</p></div>';
   } else if (!shown.length) {
     return emptyBox(S.mapFilter === 'done' ? '아직 다녀온 곳이 없어요.' : S.mapFilter === 'sun' ? '일요일 영업으로 표시한 갈 곳이 없어요.<br>갈 곳을 눌러 "일요일 영업"을 골라 주세요.' : S.mapFilter === 'unk' ? '일요일 영업 여부를 모두 확인했어요!' : '아직 가고 싶은 곳이 없어요.<br>"갈 곳 추가"로 지도에 모아 보세요.');
@@ -1590,6 +1603,12 @@ function mapListHtml(){
       '<span class="ra">' + (esc(it.address) || '위치 미등록') + '</span>' +
       (it.memo ? '<span class="pl-m">' + esc(it.memo) + '</span>' : '') +
       (hasPos(it) ? '' : '<span class="pl-m">지도에 표시되지 않아요. 수정해서 "지도에서 찾기"로 위치를 저장해 보세요.</span>') + '</button>';
+  });
+  personalHits.forEach(p => {
+    const owner = memberList().find(x => x.id === p.memberId);
+    h += '<button class="pl" data-act="openPersonalDetail" data-id="' + esc(p.id) + '" data-member="' + esc(p.memberId) + '" data-origin="map"><span class="pl-h"><span class="tag">개인 기록</span></span>' +
+      '<span class="rn">' + esc(p.restaurant) + '</span>' +
+      '<span class="ra">' + (owner ? esc(owner.name) + '님' + (p.area ? ' · ' + esc(p.area) : '') : (esc(p.area) || '위치 미등록')) + '</span></button>';
   });
   return h;
 }
@@ -1756,17 +1775,20 @@ function personalStats(memberId){
   return { n: S.personal.filter(x => x && x.memberId === memberId).length, avg: list.length ? mean(list.map(x => x.overall)) : null };
 }
 function viewPersonalList(){
-  let h = logSubNav();
   const mems = memberList();
-  h += '<div class="sec"><h2>개인 기록</h2></div><p class="hint" style="margin:0 0 10px">멤버를 누르면 모임이 아니라 각자 다녀온 곳의 후기를 볼 수 있어요.</p>';
+  const canAdd = S.mode === 'local' ? S.canMeet : S.canReview;
+  let h = '<div class="sec">' + logSubNav() + (canAdd ? '<button class="btn out" data-act="addPersonalHome">기록 추가</button>' : '') + '</div>';
+  h += '<p class="hint" style="margin:0 0 10px">모임이 아니라 각자 다녀온 곳의 후기예요. 누르면 자세히 볼 수 있어요.</p>';
   if (!mems.length) return h + emptyBox('아직 합류한 멤버가 없어요.');
-  mems.forEach(mem => {
-    const st = personalStats(mem.id);
-    h += '<button class="mem" data-act="openPersonalMember" data-id="' + esc(mem.id) + '"><span class="grow">' + avatar(mem, 'lg') +
-      '<span class="nm">' + esc(mem.name) + (isMine(mem.id) ? ' (나)' : '') + '<span class="attn">개인 기록 ' + st.n + '개</span></span></span>' +
-      (st.n ? '<span class="sc"><span class="n">' + fmt(st.avg) + '</span>' + pieces(st.avg) + '</span>' : '') + '</button>';
+  const rows = mems.map(mem => Object.assign({ mem: mem }, personalStats(mem.id)))
+    .sort((a, b) => (a.n === 0 && b.n === 0) ? 0 : a.n === 0 ? 1 : b.n === 0 ? -1 : (b.avg - a.avg) || (b.n - a.n));
+  h += '<ol class="rank">';
+  rows.forEach((row, i) => {
+    h += '<li><button class="rkrow" data-act="openPersonalMember" data-id="' + esc(row.mem.id) + '"><span class="rk">' + (i + 1) + '</span><span>' +
+      '<span class="rn">' + esc(row.mem.name) + (isMine(row.mem.id) ? ' (나)' : '') + '</span><span class="ra">' + (row.n ? '다녀온 곳 ' + row.n + '곳' : '아직 없어요') + '</span></span>' +
+      '<span class="sc">' + (row.n ? '<span class="n">' + fmt(row.avg) + '</span>' + pieces(row.avg) : '') + '</span></button></li>';
   });
-  return h;
+  return h + '</ol>';
 }
 function viewPersonalMember(){
   const mem = memberList().find(x => x.id === S.personalMemberId);
@@ -1791,7 +1813,7 @@ function viewPersonalDetail(){
   const p = S.personal.find(x => x.id === S.personalEntryId);
   if (!p) { S.personalEntryId = null; S.personalOrigin = null; return S.personalMemberId ? viewPersonalMember() : viewPersonalList(); }
   const mem = memberList().find(x => x.id === p.memberId);
-  const backLabel = S.personalOrigin === 'member' ? '후기 목록으로' : S.personalOrigin === 'dex' ? '도감으로' : (mem ? esc(mem.name) + '님의 기록으로' : '개인기록으로');
+  const backLabel = S.personalOrigin === 'member' ? '후기 목록으로' : S.personalOrigin === 'dex' ? '도감으로' : S.personalOrigin === 'map' ? '지도로' : (mem ? esc(mem.name) + '님의 기록으로' : '개인기록으로');
   let h = '<button class="back" data-act="personalDetailBack">‹ ' + backLabel + '</button>';
   h += '<p class="d-date">' + (mem ? esc(mem.name) + '님의 개인 기록 · ' : '') + longDate(p.date) + '</p><h2 class="d-name">' + esc(p.restaurant) + '</h2>';
   const meta = [];
@@ -1813,8 +1835,21 @@ function viewPersonalDetail(){
 }
 function openPersonalSheet(memberId, id){
   const ex = id ? S.personal.find(x => x.id === id) : null;
+  const mems = memberList();
+  if (!ex && !memberId) {
+    if (S.mode === 'local') {
+      if (!mems.length) { openNameSheet(null, () => openPersonalSheet(null, null)); return; }
+      memberId = mems[0].id;
+    } else {
+      if (!(S.members[S.meId] && S.members[S.meId].nickname)) { openNameSheet(S.meId, () => openPersonalSheet(S.meId, null)); return; }
+      memberId = S.meId;
+    }
+  }
   const owner = ex ? ex.memberId : memberId;
   if (!owner) return;
+  const whoPicker = (!ex && S.mode === 'local' && mems.length > 1)
+    ? '<div class="who" role="group" aria-label="작성자">' + mems.map(x => '<button type="button" data-pwho="' + esc(x.id) + '" aria-pressed="' + (x.id === owner) + '">' + avatar(x) + esc(x.name) + '</button>').join('') + '</div>'
+    : '';
   const v = ex || { restaurant: '', date: todayStr(), area: '', price: '', mapUrl: '', instaUrl: '', lat: null, lng: null, placeUrl: '', overall: 0, neta: 0, shari: 0, value: 0, best: '', comment: '' };
   let pick = hasPos(v) ? { lat: Number(v.lat), lng: Number(v.lng), placeUrl: v.placeUrl || '' } : null;
   const F = { overall: v.overall || 0, neta: v.neta || 0, shari: v.shari || 0, value: v.value || 0 };
@@ -1822,7 +1857,7 @@ function openPersonalSheet(memberId, id){
   const P = origP.slice();
   const detailRow = (g, label, hint) => '<div class="drow"><span>' + label + '<small>' + hint + '</small></span><div class="rate-wrap"><div class="rate" role="radiogroup" aria-label="' + label + '" data-g="' + g + '">' + rateGroup(g, F[g]) + '</div><span class="rout" data-out="' + g + '">' + (F[g] || '') + '</span></div></div>';
   openSheet(ex ? '개인 기록 수정' : '개인 기록 추가',
-    '<h3>' + (ex ? '개인 기록 수정' : '개인 기록 추가') + '</h3>' +
+    '<h3>' + (ex ? '개인 기록 수정' : '개인 기록 추가') + '</h3>' + whoPicker +
     searchBlock() +
     '<label for="f-name">가게 이름</label><input id="f-name" maxlength="60" value="' + esc(v.restaurant) + '" placeholder="예: 스시 OO">' +
     '<div class="row2"><div><label for="f-date">날짜</label><input id="f-date" type="date" value="' + esc(v.date) + '"></div>' +
@@ -1842,6 +1877,10 @@ function openPersonalSheet(memberId, id){
     '<div class="actions">' + (ex ? '<button class="btn warn" id="del">삭제</button>' : '<button class="btn" data-act="sheetClose">취소</button>') + '<button class="btn pri" id="save">저장</button></div>',
     sheet => {
       const err = sheet.querySelector('#err');
+      sheet.addEventListener('click', e => {
+        const w = e.target.closest('[data-pwho]');
+        if (w) openPersonalSheet(w.dataset.pwho, null);
+      });
       bindSearch(sheet, r => {
         sheet.querySelector('#f-name').value = r.name;
         sheet.querySelector('#f-area').value = shortArea(r.address);
@@ -2240,6 +2279,7 @@ document.addEventListener('click', e => {
   else if (a === 'openPersonalDetail') { S.personalEntryId = t.dataset.id; S.personalMemberId = t.dataset.member || S.personalMemberId; S.personalOrigin = t.dataset.origin || 'subtab'; render(false); }
   else if (a === 'personalDetailBack') { S.personalEntryId = null; S.personalOrigin = null; render(false); }
   else if (a === 'addPersonal') openPersonalSheet(t.dataset.member, null);
+  else if (a === 'addPersonalHome') openPersonalSheet(null, null);
   else if (a === 'editPersonal') openPersonalSheet(t.dataset.member, t.dataset.id);
   else if (a === 'openMember') { S.memberView = t.dataset.id; render(false); }
   else if (a === 'memberBack') { S.memberView = null; render(false); }
