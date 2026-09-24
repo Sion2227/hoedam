@@ -397,6 +397,23 @@ h2{font-size:18px}
 button.mem{border:1px solid var(--line);background:var(--surface);text-align:left;cursor:pointer;width:100%}
 .row .chips{grid-column:2/-1;flex-wrap:nowrap;margin-top:0;overflow:hidden}
 .attn{margin-left:8px;font:400 13.5px var(--sans);color:var(--ink2);white-space:nowrap}
+.calouter{overflow:hidden;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+.calslide{display:flex;transition:transform .25s ease}
+.calslide>div{flex:0 0 100%;min-width:0;padding:16px}
+.calslide .sum{border:0;padding:0;margin:0}
+.caldots{display:flex;justify-content:center;gap:6px;margin:10px 0 4px}
+.caldot{width:6px;height:6px;border-radius:50%;background:var(--line);border:0;padding:0;cursor:pointer}
+.caldot[aria-current="true"]{background:var(--accent)}
+.calnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.calnav .btn{min-height:32px;padding:2px 14px;font-size:14px}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}
+.cdow{font-size:11px;color:var(--ink2);padding-bottom:3px}
+.cday{position:relative;aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:9px;font-size:12.5px;background:none;border:0;color:var(--ink)}
+.cday.blank{visibility:hidden}
+.cday.marked{cursor:pointer;background:var(--surface2)}
+.cday.marked .cn{display:none}
+.cday .cmk{width:76%;height:76%;display:flex;align-items:center;justify-content:center}
+.cday .cmk svg{width:100%;height:100%;display:block}
 .who-mini{display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:5px}
 .who-mini .av{width:16px;height:16px;font-size:8.5px}
 .who-mini span{font-size:11.5px;color:var(--ink2)}
@@ -428,6 +445,44 @@ const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2
 const clone = o => JSON.parse(JSON.stringify(o));
 const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
 const fmt = n => n == null ? '–' : n.toFixed(1);
+function calUpcomingFace(){
+  return '<svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="#fff" stroke="var(--accent)" stroke-width="1.6"/><circle cx="9.6" cy="12" r="1.1" fill="#3B2A20"/><circle cx="16.4" cy="12" r="1.1" fill="#3B2A20"/><circle cx="13" cy="16" r="1.5" fill="#3B2A20"/></svg>';
+}
+function memberCalendarData(mem, y, mo){
+  const map = {};
+  const prefix = y + '-' + String(mo).padStart(2, '0');
+  S.meetings.forEach(m => {
+    if (!m || !m.date || !m.restaurant || String(m.date).indexOf(prefix) !== 0) return;
+    if (!attendeesOf(m).some(a => a.id === mem.id)) return;
+    const r = mem.d.entries && mem.d.entries[m.id];
+    map[m.date] = { kind: 'meeting', id: m.id, score: (r && r.overall) || null, upcoming: m.date >= todayStr() && !(r && r.overall) };
+  });
+  S.personal.forEach(p => {
+    if (!p || p.memberId !== mem.id || !p.date || !p.restaurant || String(p.date).indexOf(prefix) !== 0) return;
+    map[p.date] = { kind: 'personal', id: p.id, score: p.overall || null };
+  });
+  return map;
+}
+function calendarPageHtml(mem){
+  const y = S.calYear, mo = S.calMonth;
+  const map = memberCalendarData(mem, y, mo);
+  const startDow = new Date(y, mo - 1, 1).getDay();
+  const daysInMonth = new Date(y, mo, 0).getDate();
+  let cells = '';
+  for (let i = 0; i < startDow; i++) cells += '<span class="cday blank"></span>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    const e = map[ds];
+    if (!e) { cells += '<span class="cday"><span class="cn">' + d + '</span></span>'; continue; }
+    const mark = (e.kind === 'meeting' && e.upcoming) ? calUpcomingFace() : scoreFace(e.score);
+    const attrs = e.kind === 'meeting' ? 'data-act="open" data-id="' + esc(e.id) + '"' : 'data-act="openPersonalDetail" data-id="' + esc(e.id) + '" data-member="' + esc(mem.id) + '" data-origin="member"';
+    cells += '<button type="button" class="cday marked" ' + attrs + '><span class="cn">' + d + '</span><span class="cmk">' + mark + '</span></button>';
+  }
+  const dow = ['일', '월', '화', '수', '목', '금', '토'].map(x => '<span class="cdow">' + x + '</span>').join('');
+  return '<div><div class="calnav"><button type="button" class="btn ghost" data-act="calPrev" aria-label="이전 달">‹</button><span class="j" style="font-size:16px">' + y + '년 ' + mo + '월</span><button type="button" class="btn ghost" data-act="calNext" aria-label="다음 달">›</button></div>' +
+    '<div class="calgrid">' + dow + cells + '</div></div>';
+}
+
 function scoreFace(v){
   if (v == null) return '';
   if (v >= 4.4) return '<svg width="17" height="17" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="#E8748A"/><path d="M8 11.2q1.3-1.3 2.6 0M15.4 11.2q1.3-1.3 2.6 0" stroke="#3B2A20" stroke-width="1.4" fill="none" stroke-linecap="round"/><ellipse cx="8.6" cy="15.8" rx="2" ry="1.2" fill="#fff" opacity=".55"/><ellipse cx="17.4" cy="15.8" rx="2" ry="1.2" fill="#fff" opacity=".55"/><path d="M8.6 15.3q4.4 5.2 8.8 0" stroke="#3B2A20" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>';
@@ -450,7 +505,8 @@ const S = {
   ready: false, mode: 'loading', meId: null, profileName: '',
   canMeet: true, canReview: true, error: '',
   meetings: [], members: {}, photos: {}, tab: 'log', detail: null, gate: 'loading', user: null, gateMsg: '', wishes: [], dexImgs: {}, mapFilter: 'all', mapQuery: '', store: null, memberView: null, memberSort: 'score', season: null, seasonView: false, seasonEdit: false, seasonAdd: -1, seasonConfirm: false, seasonJump: false,
-  personal: [], logSub: 'meetings', personalMemberId: null, personalEntryId: null, personalOrigin: null
+  personal: [], logSub: 'meetings', personalMemberId: null, personalEntryId: null, personalOrigin: null,
+  memberCalPage: 0, calYear: new Date().getFullYear(), calMonth: new Date().getMonth() + 1
 };
 
 /* ---------- storage backends ---------- */
@@ -844,6 +900,7 @@ function render(keep){
   window.scrollTo(0, keep ? y : 0);
   if (S.seasonJump) { S.seasonJump = false; const nowRow = $('.smrow.now'); if (nowRow) nowRow.scrollIntoView({ block: 'center' }); }
   if (!S.detail && S.tab === 'map') attachMap();
+  if (S.memberView && !S.detail && !S.personalEntryId) attachCalSwipe();
   if (keepQ) { const q2 = $('#mapq'); if (q2) { q2.focus({ preventScroll: true }); try { q2.setSelectionRange(keepQ[0], keepQ[1]); } catch (e) {} } }
   syncPhotos();
 }
@@ -986,8 +1043,12 @@ function viewMemberReviews(){
   let h = '<button class="back" data-act="memberBack">‹ 멤버로</button>';
   h += '<div class="mhead">' + avatar(mem, 'lg') + '<div><h2 class="d-name" style="font-size:27px">' + esc(mem.name) + (isMine(mem.id) ? ' (나)' : '') + '</h2><div class="d-meta" style="margin:0"><span>후기 ' + items.length + '개</span></div></div></div>';
   if (!items.length) return h + emptyBox('아직 남긴 후기가 없어요.');
-  h += '<section class="sum"><div class="sum-top"><span class="big">' + fmt(avg) + '</span><div>' + pieces(avg) + '<div class="sum-cnt">' + esc(mem.name) + '님이 준 종합 점수의 평균 (개인 기록 포함)</div></div></div>' +
+  const sumHtml = '<section class="sum"><div class="sum-top"><span class="big">' + fmt(avg) + '</span><div>' + pieces(avg) + '<div class="sum-cnt">' + esc(mem.name) + '님이 준 종합 점수의 평균 (개인 기록 포함)</div></div></div>' +
     catRows({ neta: col('neta'), shari: col('shari'), value: col('value') }) + '</section>';
+  h += '<div class="calouter"><div class="calslide" style="transform:translateX(-' + (S.memberCalPage * 100) + '%)">' +
+    '<div>' + calendarPageHtml(mem) + '</div><div>' + sumHtml + '</div>' +
+    '</div></div>' +
+    '<div class="caldots"><button type="button" class="caldot" data-act="calDot" data-p="0" aria-current="' + (S.memberCalPage === 0) + '" aria-label="달력 보기"></button><button type="button" class="caldot" data-act="calDot" data-p="1" aria-current="' + (S.memberCalPage === 1) + '" aria-label="평균 점수 보기"></button></div>';
   h += '<div class="fchips" style="margin:0 0 4px"><button class="fchip" data-act="memberSort" data-s="score" aria-pressed="' + (S.memberSort !== 'date') + '">평점 높은 순</button><button class="fchip" data-act="memberSort" data-s="date" aria-pressed="' + (S.memberSort === 'date') + '">최신순</button></div>';
   items.forEach(x => {
     const r = x.r;
@@ -2244,6 +2305,20 @@ function installCard(){
   return '<div class="inst"><h3>홈 화면에 추가하기</h3>' + body + '</div>';
 }
 
+function attachCalSwipe(){
+  const el = $('.calouter');
+  if (!el) return;
+  let x0 = null;
+  el.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  el.addEventListener('touchend', e => {
+    if (x0 == null) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    x0 = null;
+    if (dx < -40 && S.memberCalPage === 0) { S.memberCalPage = 1; render(true); }
+    else if (dx > 40 && S.memberCalPage === 1) { S.memberCalPage = 0; render(true); }
+  }, { passive: true });
+}
+
 /* ---------- events ---------- */
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
@@ -2326,9 +2401,16 @@ document.addEventListener('click', e => {
   else if (a === 'addPersonal') openPersonalSheet(t.dataset.member, null);
   else if (a === 'addPersonalHome') openPersonalSheet(null, null);
   else if (a === 'editPersonal') openPersonalSheet(t.dataset.member, t.dataset.id);
-  else if (a === 'openMember') { S.memberView = t.dataset.id; render(false); }
+  else if (a === 'openMember') {
+    S.memberView = t.dataset.id; S.memberCalPage = 0;
+    const now = new Date(); S.calYear = now.getFullYear(); S.calMonth = now.getMonth() + 1;
+    render(false);
+  }
   else if (a === 'memberBack') { S.memberView = null; render(false); }
   else if (a === 'memberSort') { S.memberSort = t.dataset.s; render(true); }
+  else if (a === 'calPrev') { S.calMonth--; if (S.calMonth < 1) { S.calMonth = 12; S.calYear--; } render(true); }
+  else if (a === 'calNext') { S.calMonth++; if (S.calMonth > 12) { S.calMonth = 1; S.calYear++; } render(true); }
+  else if (a === 'calDot') { S.memberCalPage = Number(t.dataset.p); render(true); }
   else if (a === 'openStore') { S.store = t.dataset.key; render(false); }
   else if (a === 'storeBack') { S.store = null; render(false); }
   else if (a === 'open') { S.detail = t.dataset.id; render(false); }
