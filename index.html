@@ -397,10 +397,14 @@ h2{font-size:18px}
 button.mem{border:1px solid var(--line);background:var(--surface);text-align:left;cursor:pointer;width:100%}
 .row .chips{grid-column:2/-1;flex-wrap:nowrap;margin-top:0;overflow:hidden}
 .attn{margin-left:8px;font:400 13.5px var(--sans);color:var(--ink2);white-space:nowrap}
-.calouter{overflow:hidden;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
-.calslide{display:flex;transition:transform .25s ease}
-.calslide>div{flex:0 0 100%;min-width:0;padding:16px}
-.calslide .sum{border:0;padding:0;margin:0}
+.calouter{overflow:hidden;border-radius:16px;background:var(--surface);border:1px solid var(--line);transition:height .25s ease}
+.calslide{display:flex;align-items:flex-start;transition:transform .25s ease}
+.calslide>div{flex:0 0 100%;min-width:0;padding:16px;box-sizing:border-box}
+.calslide .sum{border:0;padding:0;margin:0;display:flex;flex-direction:column;justify-content:center;min-height:100%}
+.statspage{display:flex;flex-direction:column;justify-content:center;min-height:206px}
+.statspage .sum-top{justify-content:center}
+.statspage .big{font-size:60px}
+.statspage .sum-top .pcs{--pw:24px}
 .caldots{display:flex;justify-content:center;gap:6px;margin:10px 0 4px}
 .caldot{width:6px;height:6px;border-radius:50%;background:var(--line);border:0;padding:0;cursor:pointer}
 .caldot[aria-current="true"]{background:var(--accent)}
@@ -900,7 +904,7 @@ function render(keep){
   window.scrollTo(0, keep ? y : 0);
   if (S.seasonJump) { S.seasonJump = false; const nowRow = $('.smrow.now'); if (nowRow) nowRow.scrollIntoView({ block: 'center' }); }
   if (!S.detail && S.tab === 'map') attachMap();
-  if (S.memberView && !S.detail && !S.personalEntryId) attachCalSwipe();
+  if (S.memberView && !S.detail && !S.personalEntryId) { attachCalSwipe(); syncCalHeight(); }
   if (keepQ) { const q2 = $('#mapq'); if (q2) { q2.focus({ preventScroll: true }); try { q2.setSelectionRange(keepQ[0], keepQ[1]); } catch (e) {} } }
   syncPhotos();
 }
@@ -1046,7 +1050,7 @@ function viewMemberReviews(){
   const sumHtml = '<section class="sum"><div class="sum-top"><span class="big">' + fmt(avg) + '</span><div>' + pieces(avg) + '<div class="sum-cnt">' + esc(mem.name) + '님이 준 종합 점수의 평균 (개인 기록 포함)</div></div></div>' +
     catRows({ neta: col('neta'), shari: col('shari'), value: col('value') }) + '</section>';
   h += '<div class="calouter"><div class="calslide" style="transform:translateX(-' + (S.memberCalPage * 100) + '%)">' +
-    '<div>' + calendarPageHtml(mem) + '</div><div>' + sumHtml + '</div>' +
+    '<div>' + calendarPageHtml(mem) + '</div><div><div class="statspage">' + sumHtml + '</div></div>' +
     '</div></div>' +
     '<div class="caldots"><button type="button" class="caldot" data-act="calDot" data-p="0" aria-current="' + (S.memberCalPage === 0) + '" aria-label="달력 보기"></button><button type="button" class="caldot" data-act="calDot" data-p="1" aria-current="' + (S.memberCalPage === 1) + '" aria-label="평균 점수 보기"></button></div>';
   h += '<div class="fchips" style="margin:0 0 4px"><button class="fchip" data-act="memberSort" data-s="score" aria-pressed="' + (S.memberSort !== 'date') + '">평점 높은 순</button><button class="fchip" data-act="memberSort" data-s="date" aria-pressed="' + (S.memberSort === 'date') + '">최신순</button></div>';
@@ -2305,6 +2309,15 @@ function installCard(){
   return '<div class="inst"><h3>홈 화면에 추가하기</h3>' + body + '</div>';
 }
 
+function syncCalHeight(){
+  const outer = $('.calouter');
+  if (!outer) return;
+  const pages = outer.querySelectorAll('.calslide > div');
+  const active = pages[S.memberCalPage];
+  const inner = active && active.firstElementChild;
+  if (!inner) return;
+  outer.style.height = (inner.offsetHeight + 32) + 'px';
+}
 function attachCalSwipe(){
   const el = $('.calouter');
   if (!el) return;
