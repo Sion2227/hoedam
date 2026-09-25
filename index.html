@@ -389,7 +389,7 @@ h2{font-size:18px}
 .next.empty .nx-l{background:none}
 .nx-n{margin-top:0;font-size:20px;color:var(--ink)}
 .nx-w{opacity:1;color:var(--ink2)}
-.sec{margin:22px 0 4px}
+.sec{margin:22px 0 4px;gap:14px}
 .row{grid-template-columns:44px minmax(0,1fr) auto;margin-top:10px}
 .row:active{transform:none}
 .dt{padding:0;background:none;transform:none}
@@ -401,7 +401,7 @@ h2{font-size:18px}
 .sheet input,.sheet textarea{border-radius:12px}
 .gate h1{font-size:32px}
 button.mem{border:1px solid var(--line);background:var(--surface);text-align:left;cursor:pointer;width:100%}
-.row .chips{grid-column:2/-1;flex-wrap:nowrap;margin-top:0;overflow:hidden}
+.row .chips{margin-top:6px}
 .attn{margin-left:8px;font:400 13.5px var(--sans);color:var(--ink2);white-space:nowrap}
 .calouter{overflow:hidden;border-radius:16px;background:var(--surface);border:1px solid var(--line);transition:height .25s ease;margin-top:16px}
 .calslide{display:flex;align-items:flex-start;transition:transform .25s ease}
@@ -946,8 +946,9 @@ function rowHtml(m, st, upcoming){
   return '<button class="row" data-act="open" data-id="' + esc(m.id) + '">' + cvHtml +
     '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span>' + (NUMS[m.id] ? '<span class="rc">' + NUMS[m.id] + '회</span>' : '') + '</span>' +
     '<span><span class="rn">' + esc(m.restaurant) + '</span>' + (m.area ? '<span class="ra">' + esc(m.area) + '</span>' : '') +
+    (upcoming ? '' : '<span class="chips">' + chips + '</span>') +
     '</span>' +
-    '<span class="sc">' + right + '</span>' + (upcoming ? '' : '<span class="chips">' + chips + '</span>') + '</button>';
+    '<span class="sc">' + right + '</span></button>';
 }
 
 function logSubNav(){
