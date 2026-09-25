@@ -109,18 +109,23 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 /* meeting rows */
 .row{display:grid;grid-template-columns:58px 1fr auto;gap:12px;width:100%;margin:10px 0 0;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);text-align:left;cursor:pointer}
 .row:active{transform:scale(.99)}
-.dt{align-self:start;padding:6px 0 8px;border-radius:18px;background:var(--surface2);text-align:center;transform:rotate(-3deg)}
+.dt{align-self:start;padding:6px 0 8px;border-radius:18px;background:var(--surface2);text-align:center}
 .row:nth-of-type(even) .dt{transform:rotate(3deg)}
 .mo{display:block;font-size:12.5px;color:var(--ink2)}
 .dy{display:block;font:400 27px/1.1 var(--display)}
 .rn{display:block;font:400 20px/1.35 var(--display)}
 .ra{display:block;font-size:13.5px;color:var(--ink2)}
-.chips{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px}
-.chip{display:inline-flex;align-items:center;gap:5px;font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:13.5px;color:var(--ink2)}
+.chip b{font-family:var(--display);font-weight:400;font-size:14.5px;color:var(--ink)}
 .chip.dim{color:var(--ink2);opacity:.65}
 .sc{text-align:right}
 .sc .n{display:block;font:400 27px/1.1 var(--display);color:var(--accent)}
-.sc .emo{display:inline-flex;vertical-align:-3px;margin-right:3px}
+.seg{display:flex;flex:1;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:4px}
+.seg button{flex:1;text-align:center;border:0;background:none;border-radius:99px;padding:8px 0;font:400 14px var(--display);color:var(--ink2);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface2);color:var(--ink)}
+.addcircle{flex:none;width:34px;height:34px;border-radius:50%;background:var(--surface);border:1.5px solid var(--line);color:var(--ink2);display:flex;align-items:center;justify-content:center;font-size:19px;cursor:pointer;line-height:1;padding:0}
+.sc .emo{display:inline-flex;vertical-align:-3px;margin-right:6px}
 .tag{display:inline-block;padding:3px 13px;border-radius:99px;background:var(--good-bg);color:var(--good);font:400 14px var(--display)}
 .empty-msg{padding:28px 0;text-align:center;color:var(--ink2)}
 .empty-msg .mascot{margin:0 auto 10px}
@@ -254,6 +259,7 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 .lb button{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:14px;width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.16);color:#fff;font-size:22px;cursor:pointer}
 
 .no{display:block;font:400 14px/1.3 var(--display);color:var(--accent)}
+.rc{display:block;font:400 11px/1.3 var(--display);color:var(--accent);margin-top:1px}
 .no-pill{display:inline-block;margin-right:8px;padding:1px 11px;border-radius:99px;background:var(--surface2);color:var(--accent);font:400 14px var(--display)}
 .mapbox{position:relative;height:300px;margin-top:12px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--surface2)}
 .maphost{position:absolute;inset:0}
@@ -852,6 +858,9 @@ function pieces(v){
 function avatar(mem, cls){
   return '<span class="av ' + (cls || '') + '" style="--c:var(--m' + (mem.i % 6) + ')" aria-hidden="true">' + esc(initial(mem.name)) + '</span>';
 }
+function avatarMono(mem){
+  return '<span class="av" style="--c:var(--surface2);color:var(--ink2)" aria-hidden="true">' + esc(initial(mem.name)) + '</span>';
+}
 
 /* ---------- views ---------- */
 function mascot(w, color){
@@ -928,22 +937,22 @@ function rowHtml(m, st, upcoming){
   const d = pd(m.date);
   const chips = attendeesOf(m).map(mem => {
     const r = mem.d.entries && mem.d.entries[m.id];
-    return '<span class="chip' + (r && r.overall ? '' : ' dim') + '">' + avatar(mem) + '<b>' + (r && r.overall ? r.overall : '–') + '</b></span>';
+    return '<span class="chip' + (r && r.overall ? '' : ' dim') + '">' + avatarMono(mem) + '<b>' + (r && r.overall ? r.overall : '–') + '</b></span>';
   }).join('');
   const right = upcoming
     ? '<span class="tag">예정</span>'
     : '<span class="n"><span class="emo">' + scoreFace(st.overall) + '</span>' + fmt(st.overall) + '</span>' + pieces(st.overall);
   const cvHtml = safeImg(m.cover) ? '<span class="cv"><img src="' + m.cover + '" alt="" loading="lazy"></span>' : '';
   return '<button class="row" data-act="open" data-id="' + esc(m.id) + '">' + cvHtml +
-    '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span></span>' +
-    '<span><span class="no">' + nth(m.id) + '</span><span class="rn">' + esc(m.restaurant) + '</span>' + (m.area ? '<span class="ra">' + esc(m.area) + '</span>' : '') +
+    '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span>' + (NUMS[m.id] ? '<span class="rc">' + NUMS[m.id] + '회</span>' : '') + '</span>' +
+    '<span><span class="rn">' + esc(m.restaurant) + '</span>' + (m.area ? '<span class="ra">' + esc(m.area) + '</span>' : '') +
     '</span>' +
     '<span class="sc">' + right + '</span>' + (upcoming ? '' : '<span class="chips">' + chips + '</span>') + '</button>';
 }
 
 function logSubNav(){
-  const p = (s, l) => '<button class="fchip" data-act="logSub" data-s="' + s + '" aria-pressed="' + (S.logSub === s) + '">' + l + '</button>';
-  return '<div class="fchips" style="margin:0">' + p('meetings', '모임기록') + p('personal', '개인기록') + '</div>';
+  const p = (s, l) => '<button type="button" data-act="logSub" data-s="' + s + '" aria-pressed="' + (S.logSub === s) + '">' + l + '</button>';
+  return '<div class="seg">' + p('meetings', '모임기록') + p('personal', '개인기록') + '</div>';
 }
 function viewLog(){
   const today = todayStr();
@@ -958,7 +967,7 @@ function viewLog(){
   } else {
     h += '<div class="next empty">' + mascot(60) + '<span class="nx"><span class="nx-n" style="font-size:19px">다음 모임이 아직 없어요</span><span class="nx-w">날짜와 가게가 정해지면 추가해 두세요.</span></span></div>';
   }
-  h += '<div class="sec">' + logSubNav() + (S.canMeet ? '<button class="btn out" data-act="addMeeting">모임 추가</button>' : '') + '</div>';
+  h += '<div class="sec">' + logSubNav() + (S.canMeet ? '<button type="button" class="addcircle" data-act="addMeeting" aria-label="모임 추가">+</button>' : '') + '</div>';
   const rows = upcoming.slice(1).map(x => ({ x: x, up: true })).concat(past.map(x => ({ x: x, up: false })));
   if (!rows.length) {
     h += emptyBox('아직 기록이 없어요.<br>첫 모임을 추가하고 점수를 남겨 보세요.');
@@ -1868,7 +1877,7 @@ function personalStats(memberId){
 }
 function viewPersonalList(){
   const canAdd = S.mode === 'local' ? S.canMeet : S.canReview;
-  let h = '<div class="sec">' + logSubNav() + (canAdd ? '<button class="btn out" data-act="addPersonalHome">기록 추가</button>' : '') + '</div>';
+  let h = '<div class="sec">' + logSubNav() + (canAdd ? '<button type="button" class="addcircle" data-act="addPersonalHome" aria-label="기록 추가">+</button>' : '') + '</div>';
   h += '<p class="hint" style="margin:0 0 10px">모임이 아니라 각자 다녀온 곳의 후기예요. 누르면 자세히 볼 수 있어요.</p>';
   const mems = memberList();
   const list = S.personal.filter(x => x && x.restaurant && x.date)
