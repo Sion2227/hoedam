@@ -107,7 +107,9 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 .yr{margin:16px 0 0;font:400 16px var(--display);color:var(--ink2)}
 
 /* meeting rows */
-.row{display:grid;grid-template-columns:58px 1fr auto;gap:12px;width:100%;margin:10px 0 0;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);text-align:left;cursor:pointer}
+.row{display:flex;flex-direction:column;width:100%;margin:10px 0 0;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);text-align:left;cursor:pointer}
+.row-main{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;width:100%;min-width:0}
+.row-left{min-width:0;flex:1}
 .row:active{transform:scale(.99)}
 .dt{align-self:start;padding:6px 0 8px;border-radius:18px;background:var(--surface2);text-align:center}
 .row:nth-of-type(even) .dt{transform:rotate(3deg)}
@@ -116,6 +118,9 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 .rn{display:block;font:400 20px/1.35 var(--display)}
 .ra{display:block;font-size:13.5px;color:var(--ink2)}
 .chips{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px}
+.row .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:1px}
+.row .chips::-webkit-scrollbar{display:none}
+.row .chip{flex:none}
 .chip{display:inline-flex;align-items:center;gap:5px;font-size:13.5px;color:var(--ink2)}
 .chip b{font-family:var(--display);font-weight:400;font-size:14.5px;color:var(--ink)}
 .chip.dim{color:var(--ink2);opacity:.65}
@@ -390,9 +395,10 @@ h2{font-size:18px}
 .nx-n{margin-top:0;font-size:20px;color:var(--ink)}
 .nx-w{opacity:1;color:var(--ink2)}
 .sec{margin:22px 0 4px;gap:14px}
-.row{grid-template-columns:44px minmax(0,1fr) auto;margin-top:10px}
+.row{margin-top:10px}
 .row:active{transform:none}
-.dt{padding:0;background:none;transform:none}
+.dt{padding:0;background:none;transform:none;flex:none;min-width:38px}
+.round{display:block;font-size:12.5px;color:var(--accent);margin-bottom:2px}
 .row:nth-of-type(even) .dt{transform:none}
 .dy{font-size:24px}
 .rn{font-size:17px}
@@ -401,7 +407,7 @@ h2{font-size:18px}
 .sheet input,.sheet textarea{border-radius:12px}
 .gate h1{font-size:32px}
 button.mem{border:1px solid var(--line);background:var(--surface);text-align:left;cursor:pointer;width:100%}
-.row .chips{margin-top:6px}
+
 .attn{margin-left:8px;font:400 13.5px var(--sans);color:var(--ink2);white-space:nowrap}
 .calouter{overflow:hidden;border-radius:16px;background:var(--surface);border:1px solid var(--line);transition:height .25s ease;margin-top:16px}
 .calslide{display:flex;align-items:flex-start;transition:transform .25s ease}
@@ -427,7 +433,7 @@ button.mem{border:1px solid var(--line);background:var(--surface);text-align:lef
 .who-mini{display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:5px}
 .who-mini .av{width:16px;height:16px;font-size:8.5px}
 .who-mini span{font-size:11.5px;color:var(--ink2)}
-.rp-note{display:block;margin-top:2px;font-size:13.5px;line-height:1.45;color:var(--ink2);white-space:normal;overflow-wrap:anywhere}
+.rp-note{display:block;margin-top:8px;padding-left:10px;border-left:3px solid var(--accent);font-size:13.5px;line-height:1.5;color:var(--ink);white-space:normal;overflow-wrap:anywhere}
 .mem .nm{display:flex;flex-wrap:wrap;align-items:baseline}
 .mem .sc .pcs{--pw:13px}
 .mem .btn.ghost{min-height:32px;padding:4px 6px;font-size:13px}
@@ -495,7 +501,7 @@ function calendarPageHtml(mem){
 
 function scoreFace(v){
   if (v == null) return '';
-  if (v >= 4.4) return '<svg width="17" height="17" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="#E8748A"/><path d="M8 11.2q1.3-1.3 2.6 0M15.4 11.2q1.3-1.3 2.6 0" stroke="#3B2A20" stroke-width="1.4" fill="none" stroke-linecap="round"/><ellipse cx="8.6" cy="15.8" rx="2" ry="1.2" fill="#fff" opacity=".55"/><ellipse cx="17.4" cy="15.8" rx="2" ry="1.2" fill="#fff" opacity=".55"/><path d="M8.6 15.3q4.4 5.2 8.8 0" stroke="#3B2A20" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>';
+  if (v >= 4.0) return '<svg width="17" height="17" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="#E8748A"/><path d="M8 11.2q1.3-1.3 2.6 0M15.4 11.2q1.3-1.3 2.6 0" stroke="#3B2A20" stroke-width="1.4" fill="none" stroke-linecap="round"/><ellipse cx="8.6" cy="15.8" rx="2" ry="1.2" fill="#fff" opacity=".55"/><ellipse cx="17.4" cy="15.8" rx="2" ry="1.2" fill="#fff" opacity=".55"/><path d="M8.6 15.3q4.4 5.2 8.8 0" stroke="#3B2A20" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>';
   if (v >= 3.0) return '<svg width="17" height="17" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="#FFC94D"/><circle cx="9.3" cy="11.5" r="1.15" fill="#3B2A20"/><circle cx="16.7" cy="11.5" r="1.15" fill="#3B2A20"/><line x1="9.3" y1="16.2" x2="16.7" y2="16.2" stroke="#3B2A20" stroke-width="1.4" stroke-linecap="round"/></svg>';
   return '<svg width="17" height="17" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="#93A5B1"/><path d="M8 10.3l2.6 1.3M18 10.3l-2.6 1.3" stroke="#2B3640" stroke-width="1.4" stroke-linecap="round"/><circle cx="9.3" cy="12.6" r="1.05" fill="#2B3640"/><circle cx="16.7" cy="12.6" r="1.05" fill="#2B3640"/><path d="M9.3 17q3.7-2.4 7.4 0" stroke="#2B3640" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>';
 }
@@ -943,12 +949,17 @@ function rowHtml(m, st, upcoming){
     ? '<span class="tag">예정</span>'
     : '<span class="n"><span class="emo">' + scoreFace(st.overall) + '</span>' + fmt(st.overall) + '</span>' + pieces(st.overall);
   const cvHtml = safeImg(m.cover) ? '<span class="cv"><img src="' + m.cover + '" alt="" loading="lazy"></span>' : '';
+  const roundLabel = NUMS[m.id] ? '<span class="round">제' + NUMS[m.id] + '회 정상회담</span>' : '';
   return '<button class="row" data-act="open" data-id="' + esc(m.id) + '">' + cvHtml +
-    '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span>' + (NUMS[m.id] ? '<span class="rc">' + NUMS[m.id] + '회</span>' : '') + '</span>' +
-    '<span><span class="rn">' + esc(m.restaurant) + '</span>' + (m.area ? '<span class="ra">' + esc(m.area) + '</span>' : '') +
-    (upcoming ? '' : '<span class="chips">' + chips + '</span>') +
-    '</span>' +
-    '<span class="sc">' + right + '</span></button>';
+    '<span class="row-main">' +
+      '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span></span>' +
+      '<span class="row-left">' + roundLabel +
+        '<span class="rn">' + esc(m.restaurant) + '</span>' +
+        (m.area ? '<span class="ra">' + esc(m.area) + '</span>' : '') +
+        (upcoming ? '' : '<span class="chips">' + chips + '</span>') +
+      '</span>' +
+      '<span class="sc">' + right + '</span>' +
+    '</span></button>';
 }
 
 function logSubNav(){
@@ -1886,21 +1897,22 @@ function viewPersonalList(){
     .filter(x => x.mem)
     .sort((a, b) => String(b.p.date).localeCompare(String(a.p.date)) || (b.p.createdAt || 0) - (a.p.createdAt || 0));
   if (!list.length) return h + emptyBox('아직 개인 기록이 없어요.<br>"기록 추가"로 혼자 다녀온 곳을 남겨 보세요.');
-  let lastYear = null;
+  let lastYm = null;
   list.forEach(x => {
     const p = x.p, mem = x.mem;
-    const y = pd(p.date).getFullYear();
-    if (y !== lastYear) { h += '<div class="yr">' + y + '년</div>'; lastYear = y; }
+    const d0 = pd(p.date);
+    const ym = d0.getFullYear() + '-' + d0.getMonth();
+    if (ym !== lastYm) { h += '<div class="yr">' + d0.getFullYear() + '년 ' + (d0.getMonth() + 1) + '월</div>'; lastYm = ym; }
     const photos = (S.photos[p.id] && S.photos[p.id][mem.id]) || [];
     const cv = photos[0] ? '<span class="cv"><img src="' + photos[0] + '" alt="" loading="lazy"></span>' : '';
-    const d = pd(p.date);
     const note = p.comment || p.best || '';
     h += '<button class="row" data-act="openPersonalDetail" data-id="' + esc(p.id) + '" data-member="' + esc(mem.id) + '" data-origin="list">' + cv +
-      '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span></span>' +
-      '<span><span class="rn">' + esc(p.restaurant) + '</span>' + (p.area ? '<span class="ra">' + esc(p.area) + '</span>' : '') +
-      (note ? '<span class="rp-note">' + esc(note) + '</span>' : '') + '</span>' +
-      '<span class="sc">' + (p.overall ? '<span class="n"><span class="emo">' + scoreFace(p.overall) + '</span>' + fmt(p.overall) + '</span>' + pieces(p.overall) : '') +
-      '<span class="who-mini">' + avatar(mem) + '<span>' + esc(mem.name) + (isMine(mem.id) ? ' (나)' : '') + '</span></span></span></button>';
+      '<span class="row-main">' +
+        '<span class="row-left"><span class="rn">' + esc(p.restaurant) + '</span>' + (p.area ? '<span class="ra">' + esc(p.area) + '</span>' : '') +
+        (note ? '<span class="rp-note">' + esc(note) + '</span>' : '') + '</span>' +
+        '<span class="sc">' + (p.overall ? '<span class="n"><span class="emo">' + scoreFace(p.overall) + '</span>' + fmt(p.overall) + '</span>' + pieces(p.overall) : '') +
+        '<span class="who-mini">' + avatar(mem) + '<span>' + esc(mem.name) + (isMine(mem.id) ? ' (나)' : '') + '</span></span></span>' +
+      '</span></button>';
   });
   return h;
 }
@@ -1916,10 +1928,13 @@ function viewPersonalMember(){
     const photos = (S.photos[p.id] && S.photos[p.id][mem.id]) || [];
     const cv = photos[0] ? '<span class="cv"><img src="' + photos[0] + '" alt="" loading="lazy"></span>' : '';
     const d = pd(p.date);
+    const pdateStr2 = (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
+    const pmeta2 = (p.area ? esc(p.area) + ' · ' : '') + pdateStr2;
     h += '<button class="row" data-act="openPersonalDetail" data-id="' + esc(p.id) + '" data-member="' + esc(mem.id) + '" data-origin="subtab" style="margin-top:12px">' + cv +
-      '<span class="dt"><span class="mo">' + (d.getMonth() + 1) + '월</span><span class="dy">' + d.getDate() + '</span></span>' +
-      '<span><span class="rn">' + esc(p.restaurant) + '</span>' + (p.area ? '<span class="ra">' + esc(p.area) + '</span>' : '') + '</span>' +
-      '<span class="sc">' + (p.overall ? '<span class="n">' + fmt(p.overall) + '</span>' + pieces(p.overall) : '') + '</span></button>';
+      '<span class="row-main">' +
+        '<span class="row-left"><span class="rn">' + esc(p.restaurant) + '</span><span class="ra">' + pmeta2 + '</span></span>' +
+        '<span class="sc">' + (p.overall ? '<span class="n"><span class="emo">' + scoreFace(p.overall) + '</span>' + fmt(p.overall) + '</span>' + pieces(p.overall) : '') + '</span>' +
+      '</span></button>';
   });
   return h;
 }
