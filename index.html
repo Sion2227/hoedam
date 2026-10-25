@@ -246,8 +246,17 @@ h2{margin:0;font:400 22px/1.3 var(--display)}
 .lnks{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .lnks a{display:inline-flex;align-items:center;min-height:42px;padding:8px 16px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:400 16px var(--display);text-decoration:none}
 .phs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.rv{display:flow-root}
+.phs.side{float:right;flex-direction:column;flex-wrap:nowrap;margin:10px 0 6px 12px}
+.rv .dess{clear:both}
 .ph{width:92px;height:92px;padding:0;border:0;border-radius:20px;overflow:hidden;background:var(--surface2);cursor:pointer}
 .ph img{display:block;width:100%;height:100%;object-fit:cover}
+.ph{position:relative}
+.ph-n{position:absolute;top:6px;right:6px;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:rgba(0,0,0,.55);color:#fff;font:600 11px/18px var(--sans);text-align:center}
+.lb-track{display:flex;width:100%;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.lb-track::-webkit-scrollbar{display:none}
+.lb-slide{flex:0 0 100%;height:100%;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;scroll-snap-stop:always}
+.lb .lb-cnt{position:absolute;top:calc(22px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);color:#fff;font:400 14px var(--sans);opacity:.85;pointer-events:none}
 .pgrid{display:flex;flex-wrap:wrap;gap:8px}
 .pth{position:relative;width:84px;height:84px;border-radius:20px;overflow:hidden;background:var(--surface2)}
 .pth img{display:block;width:100%;height:100%;object-fit:cover}
@@ -1064,7 +1073,7 @@ function viewDetail(){
     }
     const det = [['neta', '네타'], ['shari', '샤리'], ['value', '가성비']].filter(c => r[c[0]] > 0).map(c => '<span>' + c[1] + ' ' + r[c[0]] + '</span>').join('');
     const pl = (S.photos[m.id] && S.photos[m.id][mem.id]) || [];
-    const phHtml = pl.length ? '<div class="phs">' + pl.map((src, i) => '<button class="ph" data-act="zoom" data-mid="' + esc(m.id) + '" data-member="' + esc(mem.id) + '" data-i="' + i + '" aria-label="사진 크게 보기"><img src="' + src + '" alt="" loading="lazy"></button>').join('') + '</div>' : '';
+    const phHtml = pl.length ? '<div class="phs side"><button class="ph" data-act="zoom" data-mid="' + esc(m.id) + '" data-member="' + esc(mem.id) + '" data-i="0" aria-label="사진 크게 보기' + (pl.length > 1 ? ' (' + pl.length + '장)' : '') + '"><img src="' + pl[0] + '" alt="" loading="lazy">' + (pl.length > 1 ? '<span class="ph-n">' + pl.length + '</span>' : '') + '</button></div>' : '';
     const dhTxt = r.dessertHeart === 'on' ? HEART_SVG : '';
     const hasEx = !!(r.detail || r.dessert || dhTxt);
     const rvKey = m.id + '|' + mem.id;
@@ -1072,11 +1081,11 @@ function viewDetail(){
     const exHtml = isOpen ? '<div class="rv-ex">' + (r.detail ? '<p class="rv-det">' + esc(r.detail) + '</p>' : '') +
       ((r.dessert || dhTxt) ? '<div class="dess"><div class="dess-h">' + CUP_SVG + '<span>' + (m.cafe ? esc(m.cafe) : '디저트') + '</span>' + (dhTxt ? '<span>' + dhTxt + '</span>' : '') + '</div>' + (r.dessert ? '<p>' + esc(r.dessert) + '</p>' : '') + '</div>' : '') + '</div>' : '';
     h += '<div class="rv"' + (hasEx ? ' data-act="rvToggle" data-key="' + esc(rvKey) + '"' : '') + '><div class="rv-h">' + avatar(mem, 'lg') + '<span class="nm">' + esc(mem.name) + '</span>' +
-      (canEditReview(mem.id) ? '<button class="btn ghost" data-act="review" data-id="' + esc(m.id) + '" data-member="' + esc(mem.id) + '">수정</button>' : '') + '</div>' +
+      (canEditReview(mem.id) ? '<button class="btn ghost" data-act="review" data-id="' + esc(m.id) + '" data-member="' + esc(mem.id) + '">수정</button>' : '') + '</div>' + phHtml +
       '<div class="rv-s"><b>' + r.overall + '</b>' + pieces(r.overall) + '</div>' +
       (det ? '<div class="rv-d">' + det + '</div>' : '') +
       (r.best ? '<div class="rv-best"><b>오늘의 한 점</b>&nbsp; ' + esc(r.best) + '</div>' : '') +
-      (r.comment ? '<p>' + esc(r.comment) + '</p>' : '') + phHtml + exHtml +
+      (r.comment ? '<p>' + esc(r.comment) + '</p>' : '') + exHtml +
       (hasEx ? '<span class="rv-more">' + (isOpen ? '접기 ▴' : '자세히 보기 ▾') + '</span>' : '') + '</div>';
   });
   if (!att.length) h += emptyBox('참석 멤버가 없어요.<br>"모임 정보 수정"에서 참석자를 골라 주세요.');
@@ -1344,7 +1353,21 @@ function coverFromData(src){
 function openLightbox(src, ctx){
   const lb = $('#lightbox');
   const setBtn = (ctx && S.canMeet && S.meetings.some(x => x.id === ctx.mid)) ? '<button type="button" class="lb-set" data-act="setCover" data-mid="' + esc(ctx.mid) + '" data-member="' + esc(ctx.member) + '" data-i="' + esc(ctx.i) + '">대표 사진으로 지정</button>' : '';
-  lb.innerHTML = '<div class="lb" data-act="lbClose"><img src="' + src + '" alt="사진"><button type="button" data-act="lbClose" aria-label="닫기">×</button>' + setBtn + '</div>';
+  const list = (ctx && Array.isArray(ctx.list) && ctx.list.length > 1) ? ctx.list.filter(safeImg) : null;
+  if (!list || list.length < 2) {
+    lb.innerHTML = '<div class="lb" data-act="lbClose"><img src="' + src + '" alt="사진"><button type="button" data-act="lbClose" aria-label="닫기">×</button>' + setBtn + '</div>';
+    return;
+  }
+  const start = Math.max(0, Math.min(list.length - 1, Number(ctx.i) || 0));
+  lb.innerHTML = '<div class="lb" data-act="lbClose"><div class="lb-track">' + list.map((u, i) => '<div class="lb-slide"><img src="' + u + '" alt="사진 ' + (i + 1) + '"></div>').join('') + '</div>' +
+    '<span class="lb-cnt">' + (start + 1) + ' / ' + list.length + '</span><button type="button" data-act="lbClose" aria-label="닫기">×</button>' + setBtn + '</div>';
+  const track = lb.querySelector('.lb-track'), cnt = lb.querySelector('.lb-cnt'), sb = lb.querySelector('.lb-set');
+  track.scrollLeft = start * track.clientWidth;
+  track.addEventListener('scroll', () => {
+    const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+    cnt.textContent = (i + 1) + ' / ' + list.length;
+    if (sb) sb.dataset.i = String(i);
+  }, { passive: true });
 }
 function closeLightbox(){ $('#lightbox').innerHTML = ''; }
 
@@ -2444,7 +2467,7 @@ document.addEventListener('click', e => {
   if (a === 'zoom') {
     const list = (S.photos[t.dataset.mid] || {})[t.dataset.member] || [];
     const src = list[Number(t.dataset.i)];
-    if (src && safeImg(src)) openLightbox(src, { mid: t.dataset.mid, member: t.dataset.member, i: t.dataset.i });
+    if (src && safeImg(src)) openLightbox(src, { mid: t.dataset.mid, member: t.dataset.member, i: t.dataset.i, list: list });
     return;
   }
   if (a === 'zoomCover') {
