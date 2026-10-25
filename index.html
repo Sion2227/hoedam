@@ -1013,13 +1013,14 @@ function catRows(st){
 }
 
 function cafeHeart(m){
-  let on = 0, off = 0;
+  let on = 0, total = 0;
   attendeesOf(m).forEach(mem => {
     const r = mem.d.entries && mem.d.entries[m.id];
-    if (!r) return;
-    if (r.dessertHeart === 'on') on++; else if (r.dessertHeart === 'off') off++;
+    if (!r || !r.overall || r.dessertHeart === 'skip') return;
+    total++;
+    if (r.dessertHeart === 'on') on++;
   });
-  return on > off;
+  return on * 2 > total;
 }
 function viewDetail(){
   const m = S.meetings.find(x => x.id === S.detail);
@@ -1519,7 +1520,7 @@ function openReviewSheet(mid, memberId){
     '<label for="f-det">자세한 후기 <span style="font-family:var(--sans);font-size:14px;color:var(--ink2)">(선택 · 눌러서 자세히 볼 때만 보여요)</span></label><textarea id="f-det" maxlength="2000" rows="5" placeholder="길게 적고 싶은 후기를 자유롭게 남겨 보세요">' + esc(ex.detail || '') + '</textarea>' +
     '<div class="lab" style="margin-top:18px">디저트 후기 <span style="font-family:var(--sans);font-size:14px;color:var(--ink2)">(선택 · 눌러서 자세히 볼 때만 보여요)</span></div>' +
     '<div class="dsg" role="group" aria-label="디저트 하트">' +
-      [['on', '하트 켜기'], ['off', '안 켜기'], ['skip', '참석 안 함']].map(o => '<button type="button" data-dh="' + o[0] + '" aria-pressed="' + (ex.dessertHeart === o[0]) + '">' + (o[0] === 'on' ? HEART_SVG + ' ' : '') + o[1] + '</button>').join('') + '</div>' +
+      [['on', '하트 켜기'], ['skip', '참석 안 함']].map(o => '<button type="button" data-dh="' + o[0] + '" aria-pressed="' + (ex.dessertHeart === o[0]) + '">' + (o[0] === 'on' ? HEART_SVG + ' ' : '') + o[1] + '</button>').join('') + '</div>' +
     '<textarea id="f-des" maxlength="200" rows="2" style="margin-top:8px" placeholder="먹은 메뉴, 한줄평 (예: 딸기케이크 최고)">' + esc(ex.dessert || '') + '</textarea>' +
     '<div class="err" id="err"></div>' +
     '<div class="actions">' + (ex.overall ? '<button class="btn warn" id="del">삭제</button>' : '<button class="btn" data-act="sheetClose">취소</button>') + '<button class="btn pri" id="save">저장</button></div>',
